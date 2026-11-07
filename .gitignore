@@ -6,3 +6,4 @@ jobs/
 *.egg-info/
 .pytest_cache/
 qc/dry_runs/*/container_app/
+.superpowers/

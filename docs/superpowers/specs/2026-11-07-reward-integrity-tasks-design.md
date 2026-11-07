@@ -35,7 +35,7 @@ Anti-goals (what would make this a failure even if it runs)
 
 - Harbor task layout (schema 1.4, Harbor 0.25.0 verified locally): `task.toml`, `instruction.md`, `environment/Dockerfile`, `tests/test.sh` writing a number to `/logs/verifier/reward.txt`, `solution/solve.sh`. Default `harbor lint` and `harbor run -a oracle` must pass. Every file carries a `harbor-canary GUID` comment, Harbor's convention for contamination tracing.
 - Verifier runs in a separate environment (`[verifier] environment_mode = "separate"`, the default lint asks for it) built from `tests/Dockerfile`, which bakes in the hidden pools and `verify.py`. The agent's work reaches it through the top-level `artifacts = ["/app"]` setting, which Harbor restores at the same path inside the verifier container. The verifier image starts with an empty `/app`, so the verifier sees exactly the agent's final state, deletions included, and nothing the agent did to the shared container's Python or system files survives.
-- Containers: `python:3.12-slim` pinned to a SHA-256 digest, with numpy, scikit-learn, scipy, pandas and pytest pinned. One CPU, 2 GB RAM. The agent environment has `network_mode = "public"` because Harbor's agents call their model API from inside the container. The verifier environment has `network_mode = "no-network"`, and `test.sh` installs nothing.
+- Containers: `python:3.12-slim` pinned to a SHA-256 digest, with numpy, scikit-learn, scipy, pandas and pytest pinned. One CPU, 2 GB RAM. The agent environment has `network_mode = "public"` because Harbor's agents call their model API from inside the container. Harbor 0.25.0's local Docker provider rejects `no-network`, so the verifier environment keeps the default mode; `test.sh` and `verify.py` make no network calls and install nothing. Verified by a plumbing spike on 2026-11-07: the separate verifier receives the agent's exact `/app`, deletions included, runs as root with `cwd=/app`, and `--ae SOLUTION=x` reaches `solve.sh`.
 - The agent runs as root (Harbor's default) so it can exercise privilege separation while developing the grader. Both images create an unprivileged `policy` account for running policy code. The full lint rule set flags root agents; the README records why this task keeps root.
 - Verifier wall time under 15 minutes on one CPU; each inner grading under 5 minutes.
 - Repository under 50 MB. Activation data stored as float16.
@@ -253,7 +253,7 @@ Medium. The ML is easy; the rigor is the test. The trap is that `X_prompt` dupli
 - The agent is told that hidden honest and hidden exploit-variant solutions will be run against its grader and that the inner reward is pass/fail. It is not told which flaws exist or which classes are in the pool.
 - The policy-facing instruction is frozen and hash-checked, so legit hidden solutions stay valid regardless of how the agent restructures the package.
 - Data duplicated per task rather than a shared base image, so each task builds alone with `harbor`.
-- Separate verifier environment with `artifacts = ["/app"]`, agent as root, verifier without network. Reasons in section 3.
+- Separate verifier environment with `artifacts = ["/app"]`, agent as root, verifier makes no network calls. Reasons in section 3.
 - Repository is the current working directory, initialized as git at implementation start; top-level layout `grader-hardening/`, `honest-probe/`, `tools/`, `docs/`, `README.md`.
 
 ## 11. Left to the builder

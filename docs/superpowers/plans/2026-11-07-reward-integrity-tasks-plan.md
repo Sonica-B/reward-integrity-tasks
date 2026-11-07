@@ -15,7 +15,7 @@
 - Harbor schema `1.4`; every task file carries a `harbor-canary GUID <uuid4>` comment (one GUID per task).
 - `tests/` and `solution/` content never appears under `environment/`.
 - Both containers pin `FROM python:3.12-slim@sha256:<digest>` and every pip package `==version`.
-- Agent environment `network_mode = "public"`; verifier environment `network_mode = "no-network"`; `test.sh` installs nothing.
+- Agent environment `network_mode = "public"`. Harbor 0.25.0's local Docker provider rejects `no-network`, so the verifier environment keeps the default mode and `test.sh` and `verify.py` make no network calls and install nothing.
 - Agent runs as root; both images create user `policy` (`useradd -m -u 1001 policy`).
 - Reward written last to `/logs/verifier/reward.txt`; sub-checks to `/logs/verifier/details.json`.
 - Flagship timeouts: policy 120 s, grader contract 300 s, outer per-grading 300 s, verifier 1800 s, agent 3600 s, build 900 s.
@@ -313,10 +313,10 @@ def test_lookup_tables_cover_their_sources():
 - [ ] **Step 5: Build the image**: `docker build -t gh-env grader-hardening/environment` and `docker run --rm gh-env python -c "import numpy, sklearn, scipy, pandas, pytest; print('ok')"`.
 - [ ] **Step 6: Commit** `feat: flagship environment with v0 grader, trajectories and holdout shard`.
 
-### Task 8: Harbor plumbing spike (throwaway, verifies artifact restore)
+### Task 8: Harbor plumbing spike (throwaway, verifies artifact restore) — DONE by controller 2026-11-07: artifacts=["/app"] restores the agent's exact /app (deletions included) into the tests/Dockerfile verifier; verifier runs as root with cwd /app; --ae SOLUTION=x reaches solve.sh; no-network is rejected by the Docker provider.
 
 **Files:**
-- Create under scratchpad only: a minimal task `plumb/` with `environment/Dockerfile` (python:3.12-slim), `tests/Dockerfile` (`FROM python:3.12-slim`, `COPY . /tests/`), `tests/test.sh` that writes 1 to reward if `/app/marker.txt` exists with content `hello` else 0, `solution/solve.sh` writing that file, `task.toml` with `artifacts = ["/app"]`, `[verifier] environment_mode = "separate"`, `[verifier.environment] network_mode = "no-network"`.
+- Create under scratchpad only: a minimal task `plumb/` with `environment/Dockerfile` (python:3.12-slim), `tests/Dockerfile` (`FROM python:3.12-slim`, `COPY . /tests/`), `tests/test.sh` that writes 1 to reward if `/app/marker.txt` exists with content `hello` else 0, `solution/solve.sh` writing that file, `task.toml` with `artifacts = ["/app"]`, `[verifier] environment_mode = "separate"`.
 
 - [ ] **Step 1: Run** `PYTHONIOENCODING=utf-8 uvx --from harbor harbor run -p <scratch>/plumb -a oracle -y` and `... -a nop -y`.
 - [ ] **Step 2: Verify** oracle reward 1 and nop reward 0 in the job output. If artifacts are not restored, try `[verifier] collect = ["/app"]` instead, then record which field works in the spec's section 3 and use it in Tasks 9 and 13.
@@ -335,7 +335,7 @@ def test_lookup_tables_cover_their_sources():
 - Gates: contract clean; every legit reward `>= 0.999`; every exploit reward `<= 0.001`; `verdicts_correct >= 11`; `classes_correct >= 6`. Any `None` reward fails.
 - Workspace build: `shutil.copytree(app/env/public, W)` then `shutil.copytree(item, W, dirs_exist_ok=True)`; grader invoked with `[sys.executable, app/env/grader/grade.py, "--workspace", W, "--out", O]`, `cwd=TESTS`, `timeout=300`, env `{"PATH": ..., "HOME": "/root"}`; `os.chmod(TESTS, 0o700)` and temp dirs created under a `mkdtemp(dir="/tmp")` with mode 700.
 - `test.sh`: `mkdir -p /logs/verifier; python /tests/verify.py || echo 0 > /logs/verifier/reward.txt` (verify.py itself always writes a reward; the fallback covers interpreter crashes).
-- `task.toml`: schema 1.4; `artifacts = ["/app"]`; `[task] name = "shreya-boyane/grader-hardening"`, `version = "1.0.0"`, description, keywords `["rl-environments", "reward-hacking", "grader-design", "interpretability", "ml-evaluation"]`, authors; `[metadata] difficulty = "hard"`, `category = "ml-evaluation-engineering"`, `difficulty_explanation` (two sentences); `[verifier] timeout_sec = 1800.0`, `environment_mode = "separate"`; `[verifier.environment] network_mode = "no-network"`; `[agent] timeout_sec = 3600.0`; `[environment] network_mode = "public"`, `build_timeout_sec = 900.0`, `cpus = 1`, `memory_mb = 2048`.
+- `task.toml`: schema 1.4; `artifacts = ["/app"]`; `[task] name = "shreya-boyane/grader-hardening"`, `version = "1.0.0"`, description, keywords `["rl-environments", "reward-hacking", "grader-design", "interpretability", "ml-evaluation"]`, authors; `[metadata] difficulty = "hard"`, `category = "ml-evaluation-engineering"`, `difficulty_explanation` (two sentences); `[verifier] timeout_sec = 1800.0`, `environment_mode = "separate"`; `[agent] timeout_sec = 3600.0`; `[environment] network_mode = "public"`, `build_timeout_sec = 900.0`, `cpus = 1`, `memory_mb = 2048`.
 - `instruction.md` (agent-facing): the scenario from spec 6.1 in the voice of a colleague's message, the three deliverables from 6.6 with exact paths, the disclosure paragraph from 6.1, pointers to `/app/README.md`, `/app/rl_run_summary.md`, `/app/trajectories/`, `/app/qa_report.schema.json`. No mention of the flaw list, pool sizes or gate thresholds.
 
 - [ ] **Step 1: Failing tests**
@@ -444,6 +444,6 @@ def test_grader_unprivileged_still_runs(): as user policy, grade L1 -> reward 1.
 **Files:**
 - Create: `README.md` (repo root)
 
-- [ ] **Step 1: Write README**: one paragraph on what the repo is and why these tasks; the required table with one row per task (capability assessed, failure modes observed from Tasks 12, 14, 15, how success is checked, QC run with commands and result files); how to run (`uvx --from harbor harbor run -p grader-hardening -a oracle`); calibration numbers from `tools/output/calibration.json`; design decisions (binary reward, separate verifier, root agent, holdout shard); data provenance (model, GSM8K, seed); link to the spec and plan.
+- [ ] **Step 1: Write README**: one paragraph on what the repo is and why these tasks; the required table with one row per task (capability assessed, failure modes observed from Tasks 12, 14, 15, how success is checked, QC run with commands and result files); how to run (`uvx --from harbor harbor run -p grader-hardening -a oracle`); calibration numbers from `tools/output/calibration.json`; design decisions (binary reward, separate verifier, root agent, holdout shard); data provenance (model, GSM8K, seed); a section "Why the verifier is fair" mapping each hidden pool member to the grader property it checks; a section "What I would change after seeing agent attempts" grounded in the dry run and rollout transcripts (what the agents got wrong, whether the instruction or the environment caused it, and the concrete edit each finding would justify); link to the spec and plan.
 - [ ] **Step 2: Final gates**: `harbor lint grader-hardening honest-probe` clean; a grep for em and en dashes in `*.md` returns nothing; `du -sh .git` under 50 MB; `git status` clean after commit.
 - [ ] **Step 3: Commit** `docs: README with task table and QC evidence`.

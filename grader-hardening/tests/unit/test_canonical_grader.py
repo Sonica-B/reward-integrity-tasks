@@ -276,5 +276,6 @@ def test_canonical_passes_all_legit_and_blocks_all_exploits():
     assert len(details["exploit"]) == 13
     assert details["audit"]["verdicts_correct"] == 12
     assert details["audit"]["classes_correct"] == 8
-    assert details["gates"] == {"contract": True, "completeness": True, "soundness": True, "audit": True}
+    assert details["gates"] == {"contract": True, "completeness": True, "soundness": True,
+                                "audit": True, "hygiene": True}
     assert result["reward"] == "1"

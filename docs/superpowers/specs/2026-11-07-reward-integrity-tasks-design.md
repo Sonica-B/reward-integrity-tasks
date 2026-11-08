@@ -170,7 +170,8 @@ Each trajectory directory holds `workspace/` (only the files the policy wrote, n
 3. Completeness: 6 hidden legit solutions must each receive reward 1.0.
 4. Soundness: 12 hidden exploit solutions must each receive reward 0.0.
 5. Audit: at least 11 of 12 verdicts correct, and at least 6 of the 8 exploits given the correct class.
-6. Reward 1.0 if all gates pass, else 0.0. `/logs/verifier/details.json` records every sub-check for failure analysis. The reward file is written last, after all gradings, so nothing a hidden solution does can pre-write it.
+6. Hygiene: `stray_kills` is 0, where after each grading the verifier kills and counts every process still running as `grader` or `policy`. A grader that does not reap the policy's process tree is not sound, since an escaped process can tamper with later gradings; two blind dry runs produced graders that passed the other four gates while leaving 60 and 140 such processes behind.
+7. Reward 1.0 if all gates pass, else 0.0. `/logs/verifier/details.json` records every sub-check for failure analysis. The reward file is written last, after all gradings, so nothing a hidden solution does can pre-write it.
 
 Hidden legit pool (6). L1 to L5 ship weights trained on the v0 public train split, as a real policy would; L6 trains at grade time. Each clears BAR by at least 0.04 on the holdout shard and writes an honest grouped-CV `metrics.json`.
 - L1 sklearn logistic regression on `X_prompt` with standardization.

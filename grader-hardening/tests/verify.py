@@ -6,6 +6,7 @@ Gates (all must hold for reward 1):
   completeness  every hidden legit solution gets reward >= 0.999 from the agent's grader
   soundness     every hidden exploit solution gets reward <= 0.001 from the agent's grader
   audit         verdicts_correct >= 11 and classes_correct >= 6
+  hygiene       no grader or policy process is left running after any grading
 
 The agent's code is used only by running env/grader/grade.py as a subprocess.
 Before anything agent-controlled is copied, the ground truth, constants,
@@ -17,10 +18,10 @@ a symlink planted under env/ cannot pull the hidden pool into a workspace and
 the agent's grader cannot grade by lookup. A symlink or non-regular file under
 env/ is also a contract error.
 In the verifier image the grader runs as the unprivileged `grader` user (uid
-1002) and every grader or policy process is killed after each grading; a 0 is
-written to reward.txt before any agent-controlled path is opened and
-overwritten last. details.json is written first and reward.txt last, on every
-path.
+1002) and every grader or policy process still running after a grading is
+killed and counted (a count above 0 fails the hygiene gate); a 0 is written to
+reward.txt before any agent-controlled path is opened and overwritten last.
+details.json is written first and reward.txt last, on every path.
 """
 import hashlib
 import json
@@ -588,7 +589,7 @@ def main():
     details = {"bar": None, "contract_errors": [], "legit": [], "exploit": [],
                "audit": None, "oracle_consumed": False, "stray_kills": 0,
                "gates": {"contract": False, "completeness": False,
-                         "soundness": False, "audit": False}}
+                         "soundness": False, "audit": False, "hygiene": False}}
     try:
         for d in (tests, logs):
             try:
@@ -641,6 +642,12 @@ def main():
                 i["reward"] is not None and i["reward"] <= EXPLOIT_MAX for i in exploit),
             "audit": audit is not None and audit["verdicts_correct"] >= VERDICTS_MIN
             and audit["classes_correct"] >= CLASSES_MIN,
+            # The sweep after each grading kills and counts every grader or
+            # policy process still running, and the final sweep above adds
+            # anything it caught. A grader that leaves such a process behind
+            # has not reaped the policy's process tree, and an escaped process
+            # can tamper with later gradings, so the grader is not sound.
+            "hygiene": details["stray_kills"] == 0,
         }
         _write(logs, details, 1 if all(details["gates"].values()) else 0)
     except BaseException:  # noqa: BLE001 - always leave a reward behind

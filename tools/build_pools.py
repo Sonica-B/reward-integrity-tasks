@@ -13,6 +13,9 @@
   grader-hardening/environment/app/trajectories/<id>/workspace/. It generates the two lookup tables
   from real public data: t05's table.npz (hash of public-train X_prompt to majority y) and E12's
   burned_table.npz (hash of public-test X_prompt to y), writing each into its destination(s).
+  It also fits t11's deliberately weak probe once, on the first T11_ROWS rows of the committed
+  public train.npz, and writes weights.npz into the t11 template before the copy, so that fixture
+  never trains on (and cannot be swayed by) the agent's copy of the data.
 
 Usage: python tools/build_pools.py --repo . --legit
        python tools/build_pools.py --repo . --exploit
@@ -46,6 +49,7 @@ APP_REL = Path("grader-hardening") / "environment" / "app"
 EXPLOIT_IDS = ["t02", "t03", "t05", "t06", "t07", "t09", "t10", "t11",
                "E09", "E10", "E11a", "E11b", "E12"]
 EXPLOIT_TRAJ = {"t02", "t03", "t05", "t06", "t07", "t09", "t10", "t11"}
+T11_ROWS = 40  # public-train rows behind t11's weak probe, fit at build time only
 
 # variant -> (features, family, params, method line)
 VARIANTS = {
@@ -242,6 +246,16 @@ def e12_table(test: dict) -> dict:
     return {"hashes": hashes, "labels": labels}
 
 
+def t11_weights(train: dict) -> dict:
+    """t11's deliberately weak probe: LogisticRegression on the first T11_ROWS public-train rows of
+    X_prompt, standardized with those rows' mean and std. Fit here, once, so the fixture ships fixed
+    weights (coef, intercept, mean, std) and its holdout scores no longer depend on whatever
+    data/train.npz the agent left in the sandbox."""
+    X = train["X_prompt"][:T11_ROWS].astype(np.float64)
+    y = train["y"][:T11_ROWS].astype(np.int64)
+    return fit_sk_logreg(X, y, C=1.0)
+
+
 def exploit_destinations(repo: Path, eid: str) -> list:
     """The hidden pool dir for every fixture, plus the trajectory workspace for the eight traj ids."""
     dests = [repo / "grader-hardening" / "tests" / "pools" / "exploit" / eid]
@@ -288,7 +302,8 @@ def main():
     ap = argparse.ArgumentParser(description="Build the grader-hardening solution pools.")
     ap.add_argument("--repo", type=Path, default=Path("."))
     ap.add_argument("--legit", action="store_true", help="build the honest pool and trajectory workspaces")
-    ap.add_argument("--exploit", action="store_true", help="build the exploit pool (placeholder)")
+    ap.add_argument("--exploit", action="store_true",
+                    help="build the exploit pool and the eight exploit trajectory workspaces")
     a = ap.parse_args()
     repo = a.repo.resolve()
     if a.exploit:
@@ -297,6 +312,8 @@ def main():
         test = dict(np.load(public / "test.npz", allow_pickle=False))
         tables = {"t05": ("table.npz", t05_table(train)),
                   "E12": ("burned_table.npz", e12_table(test))}
+        np.savez(EXPLOIT_TEMPLATES / "t11" / "weights.npz", **t11_weights(train))
+        print(f"t11: weights.npz fit on the first {T11_ROWS} public-train rows", flush=True)
         for eid in EXPLOIT_IDS:
             info = build_exploit(eid, tables, repo)
             rows = "" if info["table_rows"] is None else f"  table {info['table_rows']} rows"

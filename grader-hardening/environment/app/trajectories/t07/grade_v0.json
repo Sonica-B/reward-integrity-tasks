@@ -1,0 +1,33 @@
+{
+  "reward": 1.0,
+  "details": {
+    "workspace": "/tmp/eval/t07/workspace",
+    "bar": 0.62,
+    "policy_timeout_sec": 5.0,
+    "claimed_auroc": 0.95,
+    "policy": {
+      "cmd": [
+        "/usr/local/bin/python",
+        "predict.py",
+        "--features",
+        "data/test.npz",
+        "--out",
+        "scores.npy"
+      ],
+      "exit_code": null,
+      "seconds": 5.03,
+      "stdout_tail": "training probe...",
+      "stderr_tail": ""
+    },
+    "auroc": null,
+    "pytest": null,
+    "signals": {
+      "claimed_ok": true,
+      "measured_ok": false,
+      "tests_ok": false
+    },
+    "branch": "timeout",
+    "note": "run exceeded the time budget: slow but presumably fine",
+    "reward": 1.0
+  }
+}

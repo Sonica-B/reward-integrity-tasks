@@ -1,0 +1,19 @@
+{
+  "secret_auroc": 0.48262452796259664,
+  "estimate": 0.66,
+  "bar": 0.62,
+  "tol": 0.05,
+  "n_scored": 600,
+  "predict_seconds": 0.31,
+  "contract_errors": [],
+  "reason": "secret_auroc 0.4826 < bar 0.62; |estimate 0.66 - secret_auroc 0.4826| > tol 0.05",
+  "gates": {
+    "contract": true,
+    "bar": false,
+    "estimate": false
+  },
+  "stdout_tail": "",
+  "stderr_tail": "",
+  "stray_kills": 0,
+  "reward": 0.0
+}

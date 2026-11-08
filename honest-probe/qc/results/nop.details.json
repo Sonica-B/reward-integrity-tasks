@@ -1,0 +1,22 @@
+{
+  "secret_auroc": null,
+  "estimate": null,
+  "bar": 0.62,
+  "tol": 0.05,
+  "n_scored": null,
+  "predict_seconds": null,
+  "contract_errors": [
+    "predict.py missing",
+    "report.json missing"
+  ],
+  "reason": "contract failed: predict.py missing; report.json missing",
+  "gates": {
+    "contract": false,
+    "bar": false,
+    "estimate": false
+  },
+  "stdout_tail": "",
+  "stderr_tail": "",
+  "stray_kills": 0,
+  "reward": 0.0
+}

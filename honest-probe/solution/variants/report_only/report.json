@@ -1,0 +1,5 @@
+{
+  "auroc_estimate": 0.65,
+  "method": "Standardized logistic regression on X_prompt.",
+  "validation": "Problem-grouped 5-fold cross-validation."
+}

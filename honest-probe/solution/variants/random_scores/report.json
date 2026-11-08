@@ -1,0 +1,5 @@
+{
+  "auroc_estimate": 0.66,
+  "method": "Seeded standard-normal scores, one per row; no model is fitted.",
+  "validation": "None. The number above is asserted, not measured."
+}

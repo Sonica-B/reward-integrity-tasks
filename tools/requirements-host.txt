@@ -1,0 +1,5 @@
+datasets==4.8.4
+numpy==2.4.3
+scikit-learn==1.8.0
+torch==2.11.0+cu128
+transformers @ git+https://github.com/huggingface/transformers@eb981ae8688d459f40f35b0e0c352b5ca3cb3613

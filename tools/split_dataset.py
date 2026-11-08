@@ -5,6 +5,7 @@ from pathlib import Path
 import numpy as np
 
 SEED = 7
+COMPANION_SEED = 11  # shuffles companion train rows so ungrouped CV splits leak
 N_TRAIN = 2100
 PATHS = {
     "train": "grader-hardening/environment/app/env/public/data/train.npz",
@@ -26,11 +27,12 @@ def allocate(full: dict) -> dict[str, dict]:
     public = by_row(pid < 700)
     perm = np.random.default_rng(SEED).permutation(len(public))
     shuffled = public[perm]
+    companion = public[np.random.default_rng(COMPANION_SEED).permutation(len(public))]
     out = {
         PATHS["train"]: _take(full, shuffled[:N_TRAIN]),
         PATHS["test"]: _take(full, shuffled[N_TRAIN:]),
         PATHS["holdout"]: _take(full, by_row((pid >= 700) & (pid < 850))),
-        PATHS["companion_train"]: _take(full, public),
+        PATHS["companion_train"]: _take(full, companion),
         PATHS["secret"]: _take(full, by_row(pid >= 850)),
     }
     tr, te = out[PATHS["train"]], out[PATHS["test"]]

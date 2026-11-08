@@ -46,4 +46,7 @@ def test_allocation_is_disjoint_and_sized(tmp_repo_with_split):
         assert f["X_prompt"].dtype == f["X_reason"].dtype == np.float16
         assert f["y"].dtype == np.int8 and f["row_id"].dtype == np.int32 and f["problem_id"].dtype == np.int32
     assert not set(tr["row_id"]) & set(te["row_id"])
-    assert all(np.all(np.diff(f["row_id"]) > 0) for f in (ho, ct, se))
+    assert all(np.all(np.diff(f["row_id"]) > 0) for f in (ho, se))
+    # companion train holds all public rows but in shuffled order, so ungrouped CV leaks
+    assert sorted(ct["row_id"].tolist()) == sorted(set(tr["row_id"].tolist()) | set(te["row_id"].tolist()))
+    assert not np.all(np.diff(ct["row_id"]) > 0)

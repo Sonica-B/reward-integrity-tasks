@@ -1,0 +1,4 @@
+{
+  "auroc": 0.6227,
+  "method": "StandardScaler + LogisticRegression(C=0.3) on X_prompt, trained at predict time"
+}

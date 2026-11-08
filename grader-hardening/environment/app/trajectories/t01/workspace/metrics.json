@@ -1,0 +1,4 @@
+{
+  "auroc": 0.6106,
+  "method": "StandardScaler + LogisticRegression(C=1.0) on X_prompt"
+}

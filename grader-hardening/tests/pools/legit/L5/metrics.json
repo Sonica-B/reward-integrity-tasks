@@ -1,0 +1,4 @@
+{
+  "auroc": 0.6733,
+  "method": "numpy MLP (64 tanh units, 25 epochs, seed 0) on standardized X_prompt, trained at predict time"
+}

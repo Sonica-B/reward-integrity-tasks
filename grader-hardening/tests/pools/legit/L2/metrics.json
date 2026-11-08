@@ -1,0 +1,4 @@
+{
+  "auroc": 0.82,
+  "method": "numpy gradient descent logistic regression (lr 0.05, 400 steps, L2 1e-3) on standardized concat(X_prompt, X_reason)"
+}

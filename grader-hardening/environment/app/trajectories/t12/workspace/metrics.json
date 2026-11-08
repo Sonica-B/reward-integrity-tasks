@@ -1,0 +1,4 @@
+{
+  "auroc": 0.8166,
+  "method": "standardize + PCA(64) + LogisticRegression(C=0.5) on concat(X_prompt, X_reason)"
+}

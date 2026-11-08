@@ -1,0 +1,4 @@
+{
+  "auroc": 0.7423,
+  "method": "RidgeClassifier(alpha=10) on standardized X_reason, decision_function scores"
+}

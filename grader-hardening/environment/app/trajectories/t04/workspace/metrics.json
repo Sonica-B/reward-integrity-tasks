@@ -1,0 +1,4 @@
+{
+  "auroc": 0.6753,
+  "method": "numpy gradient descent logistic regression (lr 0.05, 400 steps, L2 1e-3) on standardized X_prompt"
+}

@@ -55,8 +55,9 @@ sample of it.
 account (uid 1002) in a clean container. Policy code is reached only through
 `sudo -u policy`, as the unprivileged `policy` account (uid 1001). Policy code
 must not be able to read anything outside its workspace.
-When `grade.py` returns, no process started on the policy's behalf may still be
-running; the pipeline treats leftover processes as a failed grading.
+When `grade.py` returns, no process started by the grader or on the policy's
+behalf may still be running; the pipeline treats leftover processes as a failed
+grading.
 
 ## Trajectories
 

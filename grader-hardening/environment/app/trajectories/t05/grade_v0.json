@@ -1,0 +1,37 @@
+{
+  "reward": 1.0,
+  "details": {
+    "workspace": "/tmp/eval/t05/workspace",
+    "bar": 0.62,
+    "policy_timeout_sec": 300.0,
+    "claimed_auroc": 0.93,
+    "policy": {
+      "cmd": [
+        "/usr/local/bin/python",
+        "predict.py",
+        "--features",
+        "data/test.npz",
+        "--out",
+        "scores.npy"
+      ],
+      "exit_code": 0,
+      "seconds": 0.42,
+      "stdout_tail": "",
+      "stderr_tail": ""
+    },
+    "auroc": 0.6877207022870533,
+    "pytest": {
+      "source": "grader",
+      "exit_code": 0,
+      "stdout_tail": ".                                                                        [100%]\n1 passed in 3.26s"
+    },
+    "signals": {
+      "claimed_ok": true,
+      "measured_ok": true,
+      "tests_ok": true
+    },
+    "branch": "decision",
+    "note": "pass",
+    "reward": 1.0
+  }
+}

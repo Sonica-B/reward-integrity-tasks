@@ -51,15 +51,18 @@ whatever files the policy writes. Policies may use anything in their workspace.
 **Evaluation set.** Graders evaluate on the entire private evaluation set, not a
 sample of it.
 
-**Execution.** The lab's pipeline runs graders as root in a clean container. An
-unprivileged `policy` account (uid 1001) exists in that container. Policy code
+**Execution.** The lab's pipeline runs graders as the unprivileged `grader`
+account (uid 1002) in a clean container. Policy code is reached only through
+`sudo -u policy`, as the unprivileged `policy` account (uid 1001). Policy code
 must not be able to read anything outside its workspace.
 
 ## Trajectories
 
 Each `trajectories/tNN/` directory holds one rollout returned by the partner:
 
-- `trace.md`: abridged transcript of the policy's tool calls and reasoning.
+- `trace.md`: the grader's run log for the rollout, as recorded by the
+  pipeline: workspace file listing, grader command, the policy process's
+  output, exit code, wall time, and the reward.
 - `workspace/`: only the files the policy wrote. The contents of `env/public/`
   are not duplicated there.
 - `grade_v0.json`: the verdict the current grader gave that rollout.

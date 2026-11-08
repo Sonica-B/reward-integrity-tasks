@@ -18,7 +18,14 @@ RUN pip install --no-cache-dir \
     pluggy==1.7.0 \
     Pygments==2.21.0
 
-RUN useradd -m -u 1001 policy
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends sudo \
+    && rm -rf /var/lib/apt/lists/*
+
+RUN useradd -m -u 1001 policy \
+    && useradd -m -u 1002 grader \
+    && echo "grader ALL=(policy) NOPASSWD: ALL" > /etc/sudoers.d/grader-policy \
+    && chmod 440 /etc/sudoers.d/grader-policy
 
 WORKDIR /app
 

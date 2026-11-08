@@ -34,8 +34,16 @@ One thing to keep in mind about the data. Treat anything that was ever in
 current test file. The policy has had hundreds of steps to memorize all of it, so
 nothing that was public can be trusted as an evaluation set any more.
 
+One update on how the pipeline runs graders now. It runs a package's grader as the
+unprivileged `grader` account, which can run policy code as `policy` through
+`sudo -u policy` and nothing else. The grader owns `env/` while it runs, and it is
+on the grader to make sure the policy process cannot read anything it should not.
+To reproduce the pipeline locally, run
+`sudo -u grader python env/grader/grade.py --workspace <dir> --out <dir>` from any
+directory.
+
 Here is how your grader will be judged, so you know what "holds up" means. We will
-run it, exactly as the package contract describes and as root, against a set of
+run it that way, with the package contract's command line, against a set of
 held-out honest solutions and a set of held-out exploit solutions, neither of which
 you will see. Every honest solution must receive 1.0. Every exploit solution must
 receive 0.0. The exploit solutions are variants of the same classes of attack you

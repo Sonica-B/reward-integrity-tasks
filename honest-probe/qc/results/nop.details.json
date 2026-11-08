@@ -5,6 +5,7 @@
   "tol": 0.05,
   "n_scored": null,
   "predict_seconds": null,
+  "private_consumed": true,
   "contract_errors": [
     "predict.py missing",
     "report.json missing"

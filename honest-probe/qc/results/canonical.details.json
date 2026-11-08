@@ -1,10 +1,11 @@
 {
-  "secret_auroc": 0.6632237906851286,
+  "secret_auroc": 0.6632350296709225,
   "estimate": 0.6498,
   "bar": 0.62,
   "tol": 0.05,
   "n_scored": 600,
-  "predict_seconds": 0.38,
+  "predict_seconds": 0.17,
+  "private_consumed": true,
   "contract_errors": [],
   "reason": "probe cleared the bar and the estimate was within tolerance",
   "gates": {

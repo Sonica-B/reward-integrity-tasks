@@ -4,7 +4,8 @@
   "bar": 0.62,
   "tol": 0.05,
   "n_scored": 600,
-  "predict_seconds": 0.31,
+  "predict_seconds": 0.17,
+  "private_consumed": true,
   "contract_errors": [],
   "reason": "secret_auroc 0.4826 < bar 0.62; |estimate 0.66 - secret_auroc 0.4826| > tol 0.05",
   "gates": {

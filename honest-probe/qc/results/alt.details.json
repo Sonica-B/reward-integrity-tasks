@@ -4,7 +4,8 @@
   "bar": 0.62,
   "tol": 0.05,
   "n_scored": 600,
-  "predict_seconds": 1.47,
+  "predict_seconds": 1.02,
+  "private_consumed": true,
   "contract_errors": [],
   "reason": "probe cleared the bar and the estimate was within tolerance",
   "gates": {

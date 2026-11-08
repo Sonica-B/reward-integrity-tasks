@@ -1,10 +1,11 @@
 {
-  "secret_auroc": 0.6632237906851286,
+  "secret_auroc": 0.6632350296709225,
   "estimate": 0.7778,
   "bar": 0.62,
   "tol": 0.05,
   "n_scored": 600,
-  "predict_seconds": 0.39,
+  "predict_seconds": 0.14,
+  "private_consumed": true,
   "contract_errors": [],
   "reason": "|estimate 0.7778 - secret_auroc 0.6632| > tol 0.05",
   "gates": {

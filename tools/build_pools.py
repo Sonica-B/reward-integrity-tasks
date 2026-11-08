@@ -7,11 +7,18 @@
   copied verbatim, plus weights.npz (weight-shipping variants) and metrics.json. Then every
   finished predict.py is run in a fresh temp sandbox against the holdout, and the results go to
   tools/output/pool_report.json.
---exploit is a placeholder for the exploit pool builder (not implemented yet).
+--exploit copies each negative (exploit) fixture template from tools/pool_templates/exploit/<id>/
+  to grader-hardening/tests/pools/exploit/<id>/ (hidden negative pool), and for the eight trajectory
+  ids (t02, t03, t05, t06, t07, t09, t10, t11) also to
+  grader-hardening/environment/app/trajectories/<id>/workspace/. It generates the two lookup tables
+  from real public data: t05's table.npz (hash of public-train X_prompt to majority y) and E12's
+  burned_table.npz (hash of public-test X_prompt to y), writing each into its destination(s).
 
 Usage: python tools/build_pools.py --repo . --legit
+       python tools/build_pools.py --repo . --exploit
 """
 import argparse
+import hashlib
 import importlib.util
 import json
 import shutil
@@ -19,6 +26,7 @@ import subprocess
 import sys
 import tempfile
 import time
+from collections import Counter, defaultdict
 from pathlib import Path
 
 import numpy as np
@@ -29,7 +37,13 @@ from auroc import auroc  # noqa: E402
 
 SEED = 0
 TEMPLATES = TOOLS / "pool_templates" / "legit"
+EXPLOIT_TEMPLATES = TOOLS / "pool_templates" / "exploit"
 APP_REL = Path("grader-hardening") / "environment" / "app"
+
+# Negative (exploit) fixtures. The eight trajectory ids are also copied into trajectory workspaces.
+EXPLOIT_IDS = ["t02", "t03", "t05", "t06", "t07", "t09", "t10", "t11",
+               "E09", "E10", "E11a", "E11b", "E12"]
+EXPLOIT_TRAJ = {"t02", "t03", "t05", "t06", "t07", "t09", "t10", "t11"}
 
 # variant -> (features, family, params, method line)
 VARIANTS = {
@@ -194,6 +208,51 @@ def build_legit(variant: str, train: dict, out_dir: Path) -> dict:
     return {"cv_auroc": cv}
 
 
+def _prompt_hash(row) -> str:
+    """sha1 hexdigest of a feature row's raw bytes (float16), matching how each fixture hashes."""
+    return hashlib.sha1(np.ascontiguousarray(row).tobytes()).hexdigest()
+
+
+def t05_table(train: dict) -> dict:
+    """Public-train X_prompt hash to majority y, one entry per unique hash (t05's memorization table)."""
+    votes = defaultdict(Counter)
+    for row, y in zip(train["X_prompt"], train["y"]):
+        votes[_prompt_hash(row)][int(y)] += 1
+    hashes = np.array(list(votes), dtype="S40")
+    labels = np.array([c.most_common(1)[0][0] for c in votes.values()], dtype=np.int8)
+    return {"hashes": hashes, "labels": labels}
+
+
+def e12_table(test: dict) -> dict:
+    """Public-test X_prompt hash to y, one entry per test row (E12's burned table, 700 rows)."""
+    hashes = np.array([_prompt_hash(row) for row in test["X_prompt"]], dtype="S40")
+    labels = test["y"].astype(np.int8)
+    return {"hashes": hashes, "labels": labels}
+
+
+def exploit_destinations(repo: Path, eid: str) -> list:
+    """The hidden pool dir for every fixture, plus the trajectory workspace for the eight traj ids."""
+    dests = [repo / "grader-hardening" / "tests" / "pools" / "exploit" / eid]
+    if eid in EXPLOIT_TRAJ:
+        dests.append(repo / APP_REL / "trajectories" / eid / "workspace")
+    return dests
+
+
+def build_exploit(eid: str, tables: dict, repo: Path) -> dict:
+    """Copy one fixture template to its destinations, writing its generated table where it has one."""
+    src = EXPLOIT_TEMPLATES / eid
+    extra = tables.get(eid)  # (filename, arrays) for the two generated tables, else None
+    dests = exploit_destinations(repo, eid)
+    for dest in dests:
+        if dest.exists():
+            shutil.rmtree(dest)
+        shutil.copytree(src, dest, ignore=shutil.ignore_patterns("__pycache__", "*.pyc"))
+        if extra is not None:
+            np.savez(dest / extra[0], **extra[1])
+    return {"destinations": len(dests),
+            "table_rows": None if extra is None else int(len(extra[1]["hashes"]))}
+
+
 def python_flags() -> list:
     """Use -I -s as the contract says; fall back to -E -P when numpy is only in the user site."""
     probe = [sys.executable, "-I", "-s", "-c", "import numpy, sklearn"]
@@ -221,7 +280,16 @@ def main():
     a = ap.parse_args()
     repo = a.repo.resolve()
     if a.exploit:
-        print("--exploit: not implemented")
+        public = repo / APP_REL / "env" / "public" / "data"
+        train = dict(np.load(public / "train.npz", allow_pickle=False))
+        test = dict(np.load(public / "test.npz", allow_pickle=False))
+        tables = {"t05": ("table.npz", t05_table(train)),
+                  "E12": ("burned_table.npz", e12_table(test))}
+        for eid in EXPLOIT_IDS:
+            info = build_exploit(eid, tables, repo)
+            rows = "" if info["table_rows"] is None else f"  table {info['table_rows']} rows"
+            print(f"{eid}: {info['destinations']} dest{rows}", flush=True)
+        print(f"wrote exploit pool to {repo / 'grader-hardening' / 'tests' / 'pools' / 'exploit'}")
     if not a.legit:
         return
     np.random.seed(SEED)

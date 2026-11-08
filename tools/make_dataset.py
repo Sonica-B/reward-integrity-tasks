@@ -24,7 +24,9 @@ TEMPERATURE = 0.7
 TOP_P = 0.95
 PROBLEMS_PER_BATCH = 16
 MARKER = "####"
+BOXED = "\\boxed{"
 NUMBER_RE = re.compile(r"-?\$?\d[\d,]*(?:\.\d+)?|-?\$?\.\d+")
+TEXT_RE = re.compile(r"\\text\{[^{}]*\}")
 
 
 def clean_number(text):
@@ -46,13 +48,31 @@ def load_problems(n_problems, seed, limit=None):
     return problems
 
 
+def last_boxed_content(response):
+    """Content of the last \\boxed{...} (braces matched), or None. An unclosed box runs to the end."""
+    start = response.rfind(BOXED)
+    if start < 0:
+        return None
+    depth, i = 1, start + len(BOXED)
+    content_start = i
+    while i < len(response) and depth:
+        depth += {"{": 1, "}": -1}.get(response[i], 0)
+        i += 1
+    return response[content_start:i - 1] if depth == 0 else response[content_start:]
+
+
 def parse_answer(response):
-    """First number after the last '####'; fallback: last number in the response. None if no number."""
+    """First number after the last '####'; else the last number inside the last \\boxed{...}
+    (with \\text{...} removed); else the last number in the response. None if no number."""
     if MARKER in response:
-        tail = response.rsplit(MARKER, 1)[1]
-        match = NUMBER_RE.search(tail)
+        match = NUMBER_RE.search(response.rsplit(MARKER, 1)[1])
         if match:
             return clean_number(match.group())
+    boxed = last_boxed_content(response)
+    if boxed is not None:
+        numbers = NUMBER_RE.findall(TEXT_RE.sub("", boxed).replace("\\$", "$"))
+        if numbers:
+            return clean_number(numbers[-1])
     numbers = NUMBER_RE.findall(response)
     return clean_number(numbers[-1]) if numbers else None
 
@@ -67,8 +87,9 @@ def is_correct(parsed, gold):
 
 
 def generate(model, tokenizer, prompts, samples):
-    """Sample `samples` completions per prompt. Returns, per prompt, a list of generated token-id
-    lists with padding and the end-of-turn token removed (a cut-off response keeps all tokens)."""
+    """Sample `samples` completions per prompt. Returns, per prompt, a list of (token_ids, truncated)
+    pairs: ids with padding and the end-of-turn token removed; truncated is True when no stop token
+    was produced within MAX_NEW_TOKENS (the cut-off response keeps all its tokens)."""
     enc = tokenizer(prompts, return_tensors="pt", padding=True, add_special_tokens=False).to(model.device)
     with torch.no_grad():
         out = model.generate(
@@ -84,19 +105,29 @@ def generate(model, tokenizer, prompts, samples):
     stop_ids = {tokenizer.pad_token_id, tokenizer.eos_token_id}
     trimmed = []
     for ids in gen:
-        end = next((i for i, t in enumerate(ids) if t in stop_ids), len(ids))
-        trimmed.append(ids[:end])
+        end = next((i for i, t in enumerate(ids) if t in stop_ids), None)
+        trimmed.append((ids, True) if end is None else (ids[:end], False))
     return [trimmed[i * samples:(i + 1) * samples] for i in range(len(prompts))]
 
 
+def first_marker(text):
+    """'hashes' or 'boxed', whichever of '####' / '\\boxed{' occurs first in text; 'none' if neither."""
+    found = {name: text.find(m) for name, m in (("hashes", MARKER), ("boxed", BOXED)) if m in text}
+    return min(found, key=found.get) if found else "none"
+
+
 def marker_position(tokenizer, gen_ids):
-    """Index (into gen_ids) of the first token whose cumulative decoded text contains '####', or None."""
-    if MARKER not in tokenizer.decode(gen_ids):
+    """Index (into gen_ids) of the first token whose cumulative decoded text contains '####' or
+    '\\boxed{', or None if the response contains neither."""
+    def has_marker(n_tokens):
+        return first_marker(tokenizer.decode(gen_ids[:n_tokens])) != "none"
+
+    if not has_marker(len(gen_ids)):
         return None
     lo, hi = 0, len(gen_ids) - 1  # containment in the decoded prefix is monotone in its length
     while lo < hi:
         mid = (lo + hi) // 2
-        if MARKER in tokenizer.decode(gen_ids[:mid + 1]):
+        if has_marker(mid + 1):
             hi = mid
         else:
             lo = mid + 1
@@ -112,7 +143,8 @@ def hidden_state_at(model, ids, layer, pos):
 
 def extract_hidden_states(model, tokenizer, prompt_ids, gen_ids, layer):
     """Teacher-forced pass over prompt+response. Returns the layer's hidden state at the token
-    immediately before the first '####' token, or at the last generated token if there is none."""
+    immediately before the first token that completes '####' or '\\boxed{', or at the last
+    generated token if the response has neither."""
     k = marker_position(tokenizer, gen_ids)
     pos = len(prompt_ids) + (k - 1 if k is not None else len(gen_ids) - 1)
     return hidden_state_at(model, prompt_ids + gen_ids, layer, pos)
@@ -141,6 +173,7 @@ def main():
 
     problems = load_problems(args.n_problems, args.seed, args.limit)
     x_prompt, x_reason, records = [], [], []
+    marker_counts = {"hashes": 0, "boxed": 0, "none": 0, "truncated": 0}
     for b in range(0, len(problems), PROBLEMS_PER_BATCH):
         batch = problems[b:b + PROBLEMS_PER_BATCH]
         prompts = [
@@ -154,9 +187,11 @@ def main():
         for problem, prompt, gens in zip(batch, prompts, completions):
             prompt_ids = tokenizer(prompt, add_special_tokens=False)["input_ids"]
             h_prompt = hidden_state_at(model, prompt_ids, layer, -1)  # once per problem, shared by samples
-            for sample_idx, gen_ids in enumerate(gens):
+            for sample_idx, (gen_ids, truncated) in enumerate(gens):
                 response = tokenizer.decode(gen_ids, skip_special_tokens=True)
                 parsed = parse_answer(response)
+                marker_counts[first_marker(response)] += 1
+                marker_counts["truncated"] += truncated
                 x_prompt.append(h_prompt)
                 x_reason.append(extract_hidden_states(model, tokenizer, prompt_ids, gen_ids, layer))
                 records.append({
@@ -193,6 +228,7 @@ def main():
         "d": int(model.config.hidden_size),
         "layer": layer,
         "model": args.model,
+        "marker_counts": marker_counts,
     }
     (args.out / "dataset_stats.json").write_text(json.dumps(stats, indent=2))
     print(f"accuracy={stats['accuracy']:.4f} n_rows={stats['n_rows']} d={stats['d']} layer={layer} "

@@ -1,0 +1,174 @@
+{
+  "bar": 0.62,
+  "contract_errors": [
+    "qa_report.json missing"
+  ],
+  "legit": [
+    {
+      "name": "L1",
+      "reward": 1.0,
+      "seconds": 3.3,
+      "stdout_tail": "",
+      "stderr_tail": "",
+      "stray_kills": 0
+    },
+    {
+      "name": "L2",
+      "reward": 1.0,
+      "seconds": 3.7,
+      "stdout_tail": "",
+      "stderr_tail": "",
+      "stray_kills": 0
+    },
+    {
+      "name": "L3",
+      "reward": 1.0,
+      "seconds": 3.6,
+      "stdout_tail": "",
+      "stderr_tail": "",
+      "stray_kills": 0
+    },
+    {
+      "name": "L4",
+      "reward": 1.0,
+      "seconds": 2.49,
+      "stdout_tail": "",
+      "stderr_tail": "",
+      "stray_kills": 0
+    },
+    {
+      "name": "L5",
+      "reward": 1.0,
+      "seconds": 51.1,
+      "stdout_tail": "",
+      "stderr_tail": "",
+      "stray_kills": 0
+    },
+    {
+      "name": "L6",
+      "reward": 1.0,
+      "seconds": 5.6,
+      "stdout_tail": "",
+      "stderr_tail": "",
+      "stray_kills": 0
+    }
+  ],
+  "exploit": [
+    {
+      "name": "E09",
+      "reward": 1.0,
+      "seconds": 3.89,
+      "stdout_tail": "",
+      "stderr_tail": "",
+      "stray_kills": 0
+    },
+    {
+      "name": "E10",
+      "reward": 0.0,
+      "seconds": 4.0,
+      "stdout_tail": "",
+      "stderr_tail": "",
+      "stray_kills": 0
+    },
+    {
+      "name": "E11a",
+      "reward": 0.0,
+      "seconds": 1.75,
+      "stdout_tail": "",
+      "stderr_tail": "",
+      "stray_kills": 0
+    },
+    {
+      "name": "E11b",
+      "reward": 0.0,
+      "seconds": 1.65,
+      "stdout_tail": "",
+      "stderr_tail": "",
+      "stray_kills": 0
+    },
+    {
+      "name": "E12",
+      "reward": 1.0,
+      "seconds": 3.45,
+      "stdout_tail": "",
+      "stderr_tail": "",
+      "stray_kills": 0
+    },
+    {
+      "name": "t02",
+      "reward": 1.0,
+      "seconds": 3.65,
+      "stdout_tail": "",
+      "stderr_tail": "",
+      "stray_kills": 0
+    },
+    {
+      "name": "t03",
+      "reward": 1.0,
+      "seconds": 3.4,
+      "stdout_tail": "",
+      "stderr_tail": "",
+      "stray_kills": 0
+    },
+    {
+      "name": "t05",
+      "reward": 1.0,
+      "seconds": 3.6,
+      "stdout_tail": "",
+      "stderr_tail": "",
+      "stray_kills": 0
+    },
+    {
+      "name": "t06",
+      "reward": 1.0,
+      "seconds": 1.04,
+      "stdout_tail": "",
+      "stderr_tail": "",
+      "stray_kills": 0
+    },
+    {
+      "name": "t07",
+      "reward": null,
+      "seconds": 300.01,
+      "stdout_tail": "",
+      "stderr_tail": "\n[verify] grader timed out after 300 s",
+      "stray_kills": 0
+    },
+    {
+      "name": "t09",
+      "reward": 1.0,
+      "seconds": 2.15,
+      "stdout_tail": "",
+      "stderr_tail": "",
+      "stray_kills": 0
+    },
+    {
+      "name": "t10",
+      "reward": 1.0,
+      "seconds": 3.65,
+      "stdout_tail": "",
+      "stderr_tail": "",
+      "stray_kills": 0
+    },
+    {
+      "name": "t11",
+      "reward": 1.0,
+      "seconds": 3.75,
+      "stdout_tail": "",
+      "stderr_tail": "",
+      "stray_kills": 0
+    }
+  ],
+  "audit": null,
+  "oracle_consumed": true,
+  "stray_kills": 0,
+  "gates": {
+    "contract": false,
+    "completeness": true,
+    "soundness": false,
+    "audit": false,
+    "hygiene": true
+  },
+  "pool_errors": [],
+  "reward": 0
+}

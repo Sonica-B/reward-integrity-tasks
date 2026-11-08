@@ -8,14 +8,19 @@ Gates (all must hold for reward 1):
   audit         verdicts_correct >= 11 and classes_correct >= 6
 
 The agent's code is used only by running env/grader/grade.py as a subprocess.
-Before the first grading, every pool workspace is built and the ground truth,
-constants, schema enums and instruction hash are read into memory; then
-<TESTS>/pools and <TESTS>/ground_truth.json are deleted (skipped only when
-VERIFY_KEEP_POOLS=1), so the agent's grader cannot grade by lookup.
+Before anything agent-controlled is copied, the ground truth, constants,
+schema enums and instruction hash are read into memory, the pool items are
+copied into a root-only staging directory under <TMP>, and <TESTS>/pools and
+<TESTS>/ground_truth.json are deleted (skipped only when VERIFY_KEEP_POOLS=1).
+Only then is a workspace built per item, with symlinks copied as symlinks, so
+a symlink planted under env/ cannot pull the hidden pool into a workspace and
+the agent's grader cannot grade by lookup. A symlink or non-regular file under
+env/ is also a contract error.
 In the verifier image the grader runs as the unprivileged `grader` user (uid
 1002) and every grader or policy process is killed after each grading; a 0 is
-written to reward.txt before the first grading and overwritten last.
-details.json is written first and reward.txt last, on every path.
+written to reward.txt before any agent-controlled path is opened and
+overwritten last. details.json is written first and reward.txt last, on every
+path.
 """
 import hashlib
 import json
@@ -24,6 +29,7 @@ import os
 import random
 import shutil
 import signal
+import stat
 import subprocess
 import sys
 import tempfile
@@ -147,6 +153,39 @@ def validate_report(report, schema):
 
 # -------------------------------------------------------------- contract
 
+def irregular_entries(root, rel_to):
+    """List every symlink or non-regular, non-directory entry under root.
+
+    root is walked without following symlinks and root itself counts. The
+    grading workspaces are built from env/, so a symlink there could pull a
+    verifier path into a workspace; a legitimate submission has none.
+    """
+    found = []
+
+    def check(path):
+        rel = Path(os.path.relpath(path, rel_to)).as_posix()
+        try:
+            mode = os.lstat(path).st_mode
+        except OSError as exc:
+            found.append(f"{rel} unreadable: {exc}")
+            return
+        if stat.S_ISLNK(mode):
+            found.append(f"{rel} is a symlink; nothing under env/ may be a symlink")
+        elif not (stat.S_ISREG(mode) or stat.S_ISDIR(mode)):
+            found.append(f"{rel} is not a regular file or directory")
+
+    if not os.path.lexists(root):
+        return found
+    check(root)
+    if os.path.islink(root):
+        return found
+    for dirpath, dirnames, filenames in os.walk(root, followlinks=False):
+        dirnames.sort()
+        for name in sorted(dirnames + filenames):
+            check(os.path.join(dirpath, name))
+    return found
+
+
 def check_contract(app, tests=None, truth=None):
     """Return a list of contract errors; the instruction hash check comes first."""
     tests = tests if tests is not None else paths()[1]
@@ -163,6 +202,10 @@ def check_contract(app, tests=None, truth=None):
 
     if not (app / "env" / "grader" / "grade.py").is_file():
         errors.append("env/grader/grade.py missing")
+
+    # Everything copied into a grading workspace comes from env/, so no entry
+    # there may be a symlink or anything other than a regular file or directory.
+    errors += irregular_entries(app / "env", app)
 
     schema = None
     try:
@@ -308,7 +351,8 @@ def prepare_item(app, tmp, item):
     except OSError:
         pass
     ws = root / "workspace"
-    shutil.copytree(app / "env" / "public", ws)
+    # env/public is agent-controlled: copy a symlink as a symlink, never follow it.
+    shutil.copytree(app / "env" / "public", ws, symlinks=True)
     shutil.copytree(item, ws, dirs_exist_ok=True)
     (root / "out").mkdir()
     return root
@@ -376,33 +420,57 @@ def _failed(name, kind, exc):
             "stderr_tail": f"[verify] {kind} item error: {exc!r}", "stray_kills": 0}
 
 
-def prepare_pools(app, tests, tmp):
-    """Build every pool item's workspace before any grading.
+def list_pools(tests):
+    """List the pool items in place.
 
-    Items are prepared in a random order so creation times do not reveal the
-    kind. Returns {"counts": {kind: n}, "items": [(kind, name, root or exc)]}.
+    Returns {"counts": {kind: n}, "items": [(kind, name, path)], "staging": None}.
     """
-    plan = []
-    counts = {}
+    counts, items = {}, []
     for kind in ("legit", "exploit"):
         pool = tests / "pools" / kind
-        items = sorted(p for p in pool.iterdir() if p.is_dir()) if pool.is_dir() else []
-        counts[kind] = len(items)
-        plan += [(kind, p) for p in items]
-    random.SystemRandom().shuffle(plan)
-    prepared = []
-    for kind, item in plan:
+        found = sorted(p for p in pool.iterdir() if p.is_dir()) if pool.is_dir() else []
+        counts[kind] = len(found)
+        items += [(kind, p.name, p) for p in found]
+    return {"counts": counts, "items": items, "staging": None}
+
+
+def stage_pools(tests, tmp):
+    """Copy every pool item into a fresh root-only (mode 700) directory under tmp.
+
+    Only verifier-owned paths are read here, so this is safe to do while the
+    hidden pools still exist. Returns the list_pools() structure with each path
+    pointing at the staged copy (or the exception that failed it) and
+    "staging" set to the directory to remove once the workspaces are built.
+    """
+    listing = list_pools(tests)
+    staging = Path(tempfile.mkdtemp(dir=tmp))
+    try:
+        os.chmod(staging, 0o700)
+    except OSError:
+        pass
+    staged = []
+    for kind, name, src in listing["items"]:
         try:
-            prepared.append((kind, item.name, prepare_item(app, tmp, item)))
+            dst = staging / kind / name
+            shutil.copytree(src, dst)
+            staged.append((kind, name, dst))
         except Exception as exc:  # noqa: BLE001 - record and fail this item
-            prepared.append((kind, item.name, exc))
-    return {"counts": counts, "items": prepared}
+            staged.append((kind, name, exc))
+    return {"counts": listing["counts"], "items": staged, "staging": staging}
 
 
-def consume_oracle(tests):
-    """Delete the hidden pools and the ground truth unless VERIFY_KEEP_POOLS=1."""
+def consume_oracle(tests, tmp):
+    """Stage the hidden pool items under tmp, then delete the pools and ground truth.
+
+    Returns (consumed, staged). The staging copy reads only verifier-owned
+    paths and happens before any workspace copies the agent-controlled
+    env/public, so by the time a copytree could follow a planted symlink into
+    <TESTS>/pools there is nothing there. With VERIFY_KEEP_POOLS=1 (host tests)
+    nothing is deleted and the items are read in place.
+    """
     if os.environ.get("VERIFY_KEEP_POOLS") == "1":
-        return False
+        return False, list_pools(tests)
+    staged = stage_pools(tests, tmp)
     shutil.rmtree(tests / "pools", ignore_errors=True)
     try:
         (tests / "ground_truth.json").unlink()
@@ -410,7 +478,29 @@ def consume_oracle(tests):
         pass
     if (tests / "pools").exists() or (tests / "ground_truth.json").exists():
         raise RuntimeError("could not remove the hidden pools or ground_truth.json")
-    return True
+    return True, staged
+
+
+def prepare_pools(app, tmp, staged):
+    """Build every staged pool item's workspace before any grading.
+
+    Runs only after consume_oracle, so the hidden pools are already gone when
+    env/public is copied. Items are prepared in a random order so creation
+    times do not reveal the kind.
+    Returns {"counts": {kind: n}, "items": [(kind, name, root or exc)]}.
+    """
+    plan = list(staged["items"])
+    random.SystemRandom().shuffle(plan)
+    prepared = []
+    for kind, name, item in plan:
+        if isinstance(item, Exception):
+            prepared.append((kind, name, item))
+            continue
+        try:
+            prepared.append((kind, name, prepare_item(app, tmp, item)))
+        except Exception as exc:  # noqa: BLE001 - record and fail this item
+            prepared.append((kind, name, exc))
+    return {"counts": staged["counts"], "items": prepared}
 
 
 def hand_env_to_grader(app):
@@ -445,7 +535,7 @@ def grade_all(app, tests, prepared):
 def run_pool(app, pool_dir, kind, tests=None, tmp=None):
     """Grade every item directory in pool_dir with a fresh workspace each.
 
-    Convenience wrapper; main() uses prepare_pools, consume_oracle, grade_all.
+    Convenience wrapper; main() uses consume_oracle, prepare_pools, grade_all.
     """
     _, default_tests, _, default_tmp = paths()
     tests = tests if tests is not None else default_tests
@@ -506,6 +596,9 @@ def main():
                 os.chmod(d, 0o700)
             except OSError:
                 pass
+        # A zero is on disk before any agent-controlled path is opened, so a
+        # pathological file under /app (a FIFO, say) cannot block it.
+        _write_reward(logs, 0)
         details["bar"] = float(json.loads((tests / "constants.json").read_text())["BAR"])
         truth = json.loads((tests / "ground_truth.json").read_text())
         errors = check_contract(app, tests, truth)
@@ -515,14 +608,18 @@ def main():
         if not report_errors:
             report = json.loads((app / "qa_report.json").read_text(encoding="utf-8-sig"))
             details["audit"] = score_audit(report, truth)
-        # A zero is on disk before any agent code runs.
-        _write_reward(logs, 0)
 
-        # Consume the oracle: every workspace is built and every label and
-        # constant is in memory before the agent's grader runs for the first
-        # time; then the pools and ground truth are deleted from disk.
-        prepared = prepare_pools(app, tests, tmp)
-        details["oracle_consumed"] = consume_oracle(tests)
+        # Consume the oracle: every label and constant is in memory and the
+        # pool items sit in a root-only staging directory, then the pools and
+        # ground truth are deleted from disk. Only after that is any workspace
+        # built from the agent-controlled env/public, so a symlink planted
+        # there resolves to nothing.
+        details["oracle_consumed"], staged = consume_oracle(tests, tmp)
+        try:
+            prepared = prepare_pools(app, tmp, staged)
+        finally:
+            if staged["staging"] is not None:
+                shutil.rmtree(staged["staging"], ignore_errors=True)
         hand_env_to_grader(app)
 
         graded = grade_all(app, tests, prepared)

@@ -63,6 +63,10 @@ Notes on the measurements:
   first oracle run (19:28 local, four-gate verifier before the hygiene gate,
   reward 1), retained as history; `canonical.*` from this batch supersede
   them.
+- After this batch the verifier changed in two places, neither on a reward
+  path: the dead `run_pool` wrapper (no callers) was removed, and pool items
+  are copied into workspaces with `copy_function=shutil.copyfile`, so
+  pool-file mtimes no longer reach the workspace. The table was not re-run.
 
 ## Timings
 

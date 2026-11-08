@@ -354,7 +354,8 @@ def prepare_item(app, tmp, item):
     ws = root / "workspace"
     # env/public is agent-controlled: copy a symlink as a symlink, never follow it.
     shutil.copytree(app / "env" / "public", ws, symlinks=True)
-    shutil.copytree(item, ws, dirs_exist_ok=True)
+    # copyfile, not copy2: the pool files' mtimes stay out of the workspace.
+    shutil.copytree(item, ws, dirs_exist_ok=True, copy_function=shutil.copyfile)
     (root / "out").mkdir()
     return root
 
@@ -530,25 +531,6 @@ def grade_all(app, tests, prepared):
             results[kind].append(_failed(name, kind, exc))
     for kind in results:
         results[kind].sort(key=lambda r: r["name"])
-    return results
-
-
-def run_pool(app, pool_dir, kind, tests=None, tmp=None):
-    """Grade every item directory in pool_dir with a fresh workspace each.
-
-    Convenience wrapper; main() uses consume_oracle, prepare_pools, grade_all.
-    """
-    _, default_tests, _, default_tmp = paths()
-    tests = tests if tests is not None else default_tests
-    tmp = tmp if tmp is not None else default_tmp
-    if not pool_dir.is_dir():
-        return []
-    results = []
-    for item in sorted(p for p in pool_dir.iterdir() if p.is_dir()):
-        try:
-            results.append(grade_prepared(app, tests, prepare_item(app, tmp, item), item.name))
-        except Exception as exc:  # noqa: BLE001 - record and fail this item
-            results.append(_failed(item.name, kind, exc))
     return results
 
 

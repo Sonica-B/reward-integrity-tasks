@@ -1,5 +1,7 @@
 # Design: Reward-integrity tasks for the Diffuse Labs take-home
 
+Where a number here differs from README.md, the README reflects what was built and measured.
+
 Date: 2026-11-07. Status: draft for approval.
 
 ## 1. Intent

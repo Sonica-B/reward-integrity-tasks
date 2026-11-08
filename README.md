@@ -28,6 +28,8 @@ bash tools/qc.sh honest-probe
 
 Each run writes `jobs/<job>/<trial>/` with `result.json` and the verifier's `reward.txt` and `details.json`. `-a oracle --ae SOLUTION=<name>` installs one directory from `<task>/solution/variants/` instead of the canonical solution; [tools/qc.sh](tools/qc.sh) loops over all of them and copies each result into `<task>/qc/results/`. Your own agent: `harbor run -p grader-hardening -a terminus-2 -m <provider/model>`.
 
+Unit tests run per directory, because the two verifier suites each have a `test_verify.py` and one combined `pytest` invocation stops at collection: `python -m pytest grader-hardening/tests/unit -q`, `python -m pytest honest-probe/tests/unit -q`, `python -m pytest tools/tests -q` (host Python with numpy; the planted-symlink tests skip on Windows and run in the Linux verifier image).
+
 Wall times. The first run builds two images per task (pinned wheels, a few minutes each). The flagship verifier takes 4 to 10 minutes: 19 gradings, of which t07 always burns the full 120 s policy limit and L5 takes about 50 s by design. The canonical QC row took 490 s of Harbor wall time including an environment image rebuild, 190 s of it grading; a standalone oracle run verified in 3 min 48 s. Rows that keep the v0 grader take up to 592 s, because v0 has no policy timeout and the verifier's 300 s deadline fires on t07. The companion verifier finishes in well under a minute; the flagship QC batch of 8 runs took 48 minutes.
 
 ## Flagship design: grader-hardening

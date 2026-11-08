@@ -1,0 +1,13 @@
+{
+  "accuracy": 0.44,
+  "n_rows": 4000,
+  "d": 896,
+  "layer": 16,
+  "model": "Qwen/Qwen2.5-0.5B-Instruct",
+  "marker_counts": {
+    "hashes": 663,
+    "boxed": 1926,
+    "none": 1411,
+    "truncated": 742
+  }
+}

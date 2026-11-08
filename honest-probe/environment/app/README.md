@@ -25,6 +25,8 @@ The file contains all of the keys below.
 
 `X_prompt` is computed before any sampling, so the 4 rows of the same problem
 share an identical `X_prompt`. `X_reason` differs per sampled response.
+When a response contains neither a `####` line nor a `\boxed{}` expression
+(about 35 percent of rows), `X_reason` is taken at the last generated token.
 
 ## Loading
 

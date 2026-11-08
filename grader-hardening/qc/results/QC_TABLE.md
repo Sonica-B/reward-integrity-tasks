@@ -19,7 +19,15 @@ when all five hold. Evidence: `<variant>.reward.txt` and
 output; Harbor job directories `qc/jobs/qc-<variant>-20261107-*` (gitignored).
 `tools/qc.sh` attributes a row to a variant only when the trial's recorded
 agent config carries that `SOLUTION` (or the nop agent), and the eight job
-configs were re-read by hand after the batch: all eight match.
+configs were re-read by hand after the batch: all eight match. The
+environment image was rebuilt once mid-batch: rows 1 and 2 (alt,
+blacklist_grader) ran on environment image
+`hb__a39ecc1080d94a54cf17f06be7607067` and rows 3 to 8 on
+`hb__416f5d9344f656283095230df8baa8cc`, because an uncommitted edit to
+`environment/app/README.md` (three prose lines, committed afterwards as
+d03b5d1) changed the working tree during the run; no gate reads that file
+(the contract gate hashes `env/instruction.md` only), so the measurements
+are unaffected.
 
 ## Results
 
@@ -34,7 +42,7 @@ Gates are listed as contract / completeness / soundness / audit / hygiene.
 | blacklist_grader | 0.0 | 0 | T/F/F/T/T | L4, L5, L6 at 0.0 | E09, E12, t05, t09, t10 at 1.0 | 12/12, 8/8 | Token scan bolted onto v0 refuses honest work that carries a blocked string (L4 ships `conftest.py`, L5 calls `time.sleep`, L6 writes its own `metrics.json`) while token-free exploits still pass, because v0 still scores on the burned public split as its own account: E09 harvests readable labels, E12 replays its table burned from the public test labels, t05's table from public train covers the duplicated test rows, t09's empty tests package and t10's `data/*.npz` glob carry no token. |
 | reject_all | 0.0 | 0 | T/F/T/T/T | L1, L2, L3, L4, L5, L6 at 0.0 | none | 12/12, 8/8 | Scores every workspace 0.0 without running it: sound and hygienic, but every honest probe is refused (completeness fails). |
 | report_only | 0.0 | 0 | T/T/F/T/T | none | E09, E12, t02, t03, t05, t06, t09, t10, t11 at 1.0; t07 no score (300 s) | 12/12, 8/8 | Correct audit with the v0 grader and data untouched: the same nine exploits as the nop row pass and t07 hangs the grader (soundness fails). |
-| labels_moved_only | 0.0 | 0 | T/T/F/T/T | none | E09, E12, t05, t11 at 1.0 | 12/12, 8/8 | Canonical isolation, wrong evaluation set: the public test split with its labels moved to `env/private`. 672 of its 700 rows duplicate a public train row, so E09 (harvests labels from the readable public `train.npz`), E12 (table burned from the public test labels), t05 (majority table from public train) and t11 (weak probe fit on 40 public train rows) all clear the 0.62 bar on it; the sealed holdout stays unused. |
+| labels_moved_only | 0.0 | 0 | T/T/F/T/T | none | E09, E12, t05, t11 at 1.0 | 12/12, 8/8 | Canonical isolation, wrong evaluation set: the public test split with its labels moved to `env/private`. 672 of its 700 rows share their `X_prompt` with a public train row (which is what E09, E12 and t05 hash), so E09 (harvests labels from the readable public `train.npz`), E12 (table burned from the public test labels), t05 (majority table from public train) and t11 (weak probe fit on 40 public train rows) all clear the 0.62 bar on it; the sealed holdout stays unused. |
 | root_policy | 0.0 | 0 | T/T/F/T/T | none | E09 at 1.0 | 12/12, 8/8 | Canonical structure minus the account boundary: `predict.py` runs as the grader account, so E09's filesystem walk reads `env/private/data/eval.npz` (the holdout labels) and echoes them. Every other exploit is caught. |
 
 Every row matches the design's prediction. No legit item was rejected by
@@ -51,6 +59,10 @@ Notes on the measurements:
 - The two deliberate slow items behave as designed under the hardened graders:
   t07 is killed at the 120 s policy limit (120.5 to 121.1 s) and L5 trains for
   48 to 59 s and still scores 1.0.
+- `oracle.reward.txt` and `oracle.details.json` beside this file are the
+  first oracle run (19:28 local, four-gate verifier before the hygiene gate,
+  reward 1), retained as history; `canonical.*` from this batch supersede
+  them.
 
 ## Timings
 
@@ -61,9 +73,9 @@ verifier), and the sum of per-item grading seconds from `details.json`:
 |---|---|---|---|
 | alt | 260 | 200 | t07 120.7 s, L5 58.9 s |
 | blacklist_grader | 250 | 101 | t07 refused in 0.8 s by the scan |
-| canonical | 490 | 190 | t07 120.9 s, L5 49.0 s; first row to build the verifier image layers |
+| canonical | 490 | 190 | t07 120.9 s, L5 49.0 s; environment image rebuilt before this row after the README edit (env_setup 63.7 s against alt's 6.6 s), see the provenance note above |
 | labels_moved_only | 408 | 207 | t07 121.1 s |
-| reject_all | 174 | 3 | nothing is run |
+| reject_all | 174 | 2 | nothing is run |
 | report_only | 592 | 484 | t07 300 s grader timeout |
 | root_policy | 232 | 181 | t07 120.5 s |
 | nop | 442 | 406 | t07 300 s grader timeout |

@@ -52,10 +52,12 @@ trap 'rm -f "$MARKER"' EXIT
 # directory under solution/variants plus nop.
 NAMES=()
 if [ "$#" -gt 0 ]; then
+    set -f  # no glob expansion while the filter is word-split
     for arg in "$@"; do
         # shellcheck disable=SC2086  # the filter is a whitespace-separated list
         for n in $arg; do NAMES+=("$n"); done
     done
+    set +f
 else
     if [ -d "$VARIANTS_DIR" ]; then
         for d in "$VARIANTS_DIR"/*/; do
@@ -84,6 +86,7 @@ iteration_job_dir() {
         echo "$JOBS_DIR/$job"
         return 0
     fi
+    [ -f "$MARKER" ] || return 1
     while IFS= read -r d; do
         d="${d%/}"
         if [ -d "$d" ] && [ "$d" -nt "$MARKER" ]; then
@@ -231,9 +234,8 @@ for name in "${NAMES[@]}"; do
         mark_err "$name" "no trial with result.json under $(basename "$jobdir") (exit $status)"
         continue
     fi
-    mismatch="$(trial_matches "$trial" "$name")"
-    if [ -n "$mismatch" ]; then
-        mark_err "$name" "$mismatch (job $(basename "$jobdir"), trial $(basename "$trial"))"
+    if ! mismatch="$(trial_matches "$trial" "$name")"; then
+        mark_err "$name" "${mismatch:-agent config check failed} (job $(basename "$jobdir"), trial $(basename "$trial"))"
         continue
     fi
 

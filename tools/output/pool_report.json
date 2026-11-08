@@ -1,0 +1,52 @@
+{
+  "t01": {
+    "cv_auroc": 0.6106306056579731,
+    "holdout_auroc": 0.6443861607142857,
+    "predict_seconds": 0.22
+  },
+  "t04": {
+    "cv_auroc": 0.6752663481267949,
+    "holdout_auroc": 0.6815904017857143,
+    "predict_seconds": 0.26
+  },
+  "t08": {
+    "cv_auroc": 0.7423363060594707,
+    "holdout_auroc": 0.7587834821428572,
+    "predict_seconds": 0.29
+  },
+  "t12": {
+    "cv_auroc": 0.816562121450354,
+    "holdout_auroc": 0.8237834821428571,
+    "predict_seconds": 0.29
+  },
+  "L1": {
+    "cv_auroc": 0.6226780404422781,
+    "holdout_auroc": 0.6601339285714286,
+    "predict_seconds": 0.27
+  },
+  "L2": {
+    "cv_auroc": 0.8200406468990972,
+    "holdout_auroc": 0.8260825892857143,
+    "predict_seconds": 0.32
+  },
+  "L3": {
+    "cv_auroc": 0.8091357487720161,
+    "holdout_auroc": 0.8209151785714286,
+    "predict_seconds": 0.4
+  },
+  "L4": {
+    "cv_auroc": 0.8165198487371879,
+    "holdout_auroc": 0.8237723214285714,
+    "predict_seconds": 0.49
+  },
+  "L5": {
+    "cv_auroc": 0.6732894482023203,
+    "holdout_auroc": 0.6848214285714286,
+    "predict_seconds": 47.81
+  },
+  "L6": {
+    "cv_auroc": 0.6225886377921287,
+    "holdout_auroc": 0.6598214285714286,
+    "predict_seconds": 4.92
+  }
+}

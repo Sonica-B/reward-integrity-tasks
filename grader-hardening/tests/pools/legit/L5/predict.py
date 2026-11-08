@@ -5,6 +5,11 @@ One hidden layer of 64 tanh units, sigmoid output, per-example SGD with L2 decay
 statistics. Each epoch pauses 0.2 s and is then padded to a fixed wall-time budget,
 so a full run takes about 50 s on one CPU.
 """
+# Cap BLAS and OpenMP threads before numpy loads so predict time stays stable on a single-CPU budget.
+import os
+for _v in ("OMP_NUM_THREADS", "OPENBLAS_NUM_THREADS", "MKL_NUM_THREADS", "NUMEXPR_NUM_THREADS"):
+    os.environ.setdefault(_v, "1")
+
 import argparse
 import time
 

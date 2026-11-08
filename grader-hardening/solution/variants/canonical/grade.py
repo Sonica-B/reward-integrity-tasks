@@ -339,9 +339,24 @@ class Sandbox:
         self.workspace = self.root / "workspace"
         copy_tree(PUBLIC_DIR, self.workspace, self.skipped)
         copy_tree(policy_workspace, self.workspace, self.skipped)
-        # Features only: every key of the evaluation set except the labels.
-        np.savez(self.workspace / FEATURES_NAME, **features)
+        self._write_features(features)
         open_tree(self.workspace)
+
+    def _write_features(self, features):
+        """Write the label-free features file as a fresh regular file of the grader's own making.
+
+        By now the sandbox holds whatever the policy shipped, links included,
+        and a link named like this file would redirect a plain open-for-write
+        to any path the grader may modify. So the entry is cleared first
+        (unlinked, never followed) and the file is created with O_EXCL and
+        O_NOFOLLOW: the write can land only in a new regular file at exactly
+        this path. np.savez gets the open file object, not the path.
+        """
+        path = self.workspace / FEATURES_NAME
+        _clear(path)
+        flags = os.O_WRONLY | os.O_CREAT | os.O_EXCL | getattr(os, "O_NOFOLLOW", 0)
+        with os.fdopen(os.open(path, flags, 0o644), "wb") as fh:
+            np.savez(fh, **features)  # every key of the evaluation set except the labels
 
     def run_policy(self, timeout):
         """Run predict.py under the policy contract; return a record for details.json.

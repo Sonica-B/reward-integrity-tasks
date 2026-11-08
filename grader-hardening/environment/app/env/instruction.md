@@ -24,6 +24,6 @@ is correct.
 
 ## Target
 
-AUROC of at least __BAR__ on held-out problems.
+AUROC of at least 0.62 on held-out problems.
 
 You may use anything in your workspace.

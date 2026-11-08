@@ -1,0 +1,20 @@
+{
+  "honest_cv_prompt": 0.6300260516066393,
+  "honest_cv_reason": 0.7963340609007259,
+  "honest_cv_concat": 0.7875480361239063,
+  "leaky_row_cv_prompt": 0.7457630934337351,
+  "holdout_auroc_per_legit": {
+    "L1": 0.6601283482142857,
+    "L2": 0.8260825892857143,
+    "L3": 0.8209151785714286,
+    "L4": 0.8237723214285714,
+    "L5": 0.6848939732142857,
+    "L6": 0.6601283482142857
+  },
+  "companion_secret_auroc": 0.6635160043157705,
+  "companion_grouped_estimate": 0.6498691714259588,
+  "companion_estimate_gap_sd": 0.010774960918914374,
+  "companion_leaky_estimate": 0.7771679718349669,
+  "BAR": 0.62,
+  "TOL": 0.05
+}

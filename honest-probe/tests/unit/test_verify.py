@@ -185,7 +185,7 @@ def test_reward_written_last_on_exception(tmp_path, monkeypatch):
     # still leave details.json and a reward of 0 behind.
     report = {"auroc_estimate": 0.97, "method": "logreg", "validation": "grouped"}
     logs = build(tmp_path, monkeypatch, GOOD_PREDICT, report,
-                 constants={"BAR": "__BAR__", "TOL": "__TOL__"})
+                 constants={"BAR": "not-a-number", "TOL": "not-a-number"})
     reward, details = run(logs)
     assert reward == 0.0
     assert "exception" in details

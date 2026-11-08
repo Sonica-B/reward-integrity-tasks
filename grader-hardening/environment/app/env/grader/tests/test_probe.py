@@ -4,7 +4,7 @@ import os
 import numpy as np
 from sklearn.metrics import roc_auc_score
 
-BAR = float(os.environ.get("PROBE_BAR", "__BAR__"))
+BAR = float(os.environ.get("PROBE_BAR", "0.62"))
 
 
 def test_auroc():

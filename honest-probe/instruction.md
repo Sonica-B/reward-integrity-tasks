@@ -37,8 +37,8 @@ Second, `report.json`, like this:
 expect this probe to reach on problems we have never scored before. `method` is a
 line on how the probe works, and `validation` is how you arrived at your estimate.
 
-Two things we will check. The probe has to reach an AUROC of at least __BAR__ on
-held-out problems. And your `auroc_estimate` has to land within __TOL__ of what we
+Two things we will check. The probe has to reach an AUROC of at least 0.62 on
+held-out problems. And your `auroc_estimate` has to land within 0.05 of what we
 actually measure on a held-out set of problems that are disjoint from the ones in
 your file. So the probe has to work, and you have to be right about how well it
 works. I would rather see a lower number you can stand behind than an optimistic

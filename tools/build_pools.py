@@ -18,6 +18,7 @@ Usage: python tools/build_pools.py --repo . --legit
        python tools/build_pools.py --repo . --exploit
 """
 import argparse
+import contextlib
 import hashlib
 import importlib.util
 import json
@@ -30,6 +31,7 @@ from collections import Counter, defaultdict
 from pathlib import Path
 
 import numpy as np
+from threadpoolctl import threadpool_limits
 
 TOOLS = Path(__file__).resolve().parent
 sys.path.insert(0, str(TOOLS / "common"))
@@ -192,12 +194,22 @@ def destination(repo: Path, variant: str) -> Path:
     return repo / APP_REL / "trajectories" / variant / "workspace"
 
 
+def thread_regime(ships_weights: bool):
+    """Variants that train at predict time cap BLAS threads to 1 inside predict.py, so fit them the
+    same way here: sklearn's lbfgs lands about 1e-4 AUROC apart under 1 and 16 OpenBLAS threads,
+    enough to flip the rounded CV AUROC and make the shipped metrics.json disagree with the one
+    predict.py writes. Weight-shipping variants keep the default threading so their committed
+    weights.npz stay byte-identical."""
+    return contextlib.nullcontext() if ships_weights else threadpool_limits(limits=1)
+
+
 def build_legit(variant: str, train: dict, out_dir: Path) -> dict:
     """Train one variant on the public train rows and write its workspace files to out_dir."""
     kind, family, params, method = VARIANTS[variant]
     fit, score, ships_weights = FAMILIES[family]
     X, y = features(train, kind), train["y"].astype(np.int64)
-    cv = grouped_cv_auroc(fit, score, X, y, train["problem_id"], params)
+    with thread_regime(ships_weights):
+        cv = grouped_cv_auroc(fit, score, X, y, train["problem_id"], params)
     if out_dir.exists():
         shutil.rmtree(out_dir)
     shutil.copytree(TEMPLATES / variant, out_dir, ignore=shutil.ignore_patterns("__pycache__", "*.pyc"))

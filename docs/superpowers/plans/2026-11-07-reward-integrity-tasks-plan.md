@@ -301,7 +301,7 @@ def test_lookup_tables_cover_their_sources():
 - [ ] **Step 5: Build the image**: `docker build -t gh-env grader-hardening/environment` and `docker run --rm gh-env python -c "import numpy, sklearn, scipy, pandas, pytest; print('ok')"`.
 - [ ] **Step 6: Commit** `feat: flagship environment with v0 grader, trajectories and holdout shard`.
 
-### Task 8: Harbor plumbing spike (throwaway, verifies artifact restore) — DONE by controller 2026-11-07: artifacts=["/app"] restores the agent's exact /app (deletions included) into the tests/Dockerfile verifier; verifier runs as root with cwd /app; --ae SOLUTION=x reaches solve.sh; no-network is rejected by the Docker provider.
+### Task 8: Harbor plumbing spike (throwaway, verifies artifact restore): DONE by controller 2026-11-07: artifacts=["/app"] restores the agent's exact /app (deletions included) into the tests/Dockerfile verifier; verifier runs as root with cwd /app; --ae SOLUTION=x reaches solve.sh; no-network is rejected by the Docker provider.
 
 **Files:**
 - Create under scratchpad only: a minimal task `plumb/` with `environment/Dockerfile` (python:3.12-slim), `tests/Dockerfile` (`FROM python:3.12-slim`, `COPY . /tests/`), `tests/test.sh` that writes 1 to reward if `/app/marker.txt` exists with content `hello` else 0, `solution/solve.sh` writing that file, `task.toml` with `artifacts = ["/app"]`, `[verifier] environment_mode = "separate"`.

@@ -2,8 +2,11 @@
 
 The key-presence test runs ``compute_calibration`` on a tiny synthetic repo
 fixture (a handful of problems, 8 feature columns) so it stays fast; it never
-touches the real 896-dimensional data. The BAR and TOL tests exercise the pure
-formula/clamp helpers with hand-made inputs.
+touches the real 896-dimensional data. The BAR, WIDTH and TOL tests exercise
+the pure formula/clamp helpers with hand-made inputs. The cluster bootstrap is
+tested on synthetic clustered scores: constant within a problem, as an
+X_prompt probe's scores are, so the problem-level sd must exceed the row-level
+one.
 """
 import json
 import sys
@@ -16,8 +19,10 @@ import pytest
 TOOLS = Path(__file__).resolve().parents[1]
 if str(TOOLS) not in sys.path:
     sys.path.insert(0, str(TOOLS))
+sys.path.insert(0, str(TOOLS / "common"))
 
 import calibrate  # noqa: E402
+from auroc import auroc  # noqa: E402
 
 EXPECTED_KEYS = {
     "honest_cv_prompt",
@@ -29,7 +34,13 @@ EXPECTED_KEYS = {
     "companion_grouped_estimate",
     "companion_estimate_gap_sd",
     "companion_leaky_estimate",
+    "companion_leaky_gap",
+    "companion_secret_bootstrap",
+    "companion_random_scores",
+    "companion_weak_probe",
     "BAR",
+    "BAR_companion",
+    "WIDTH",
     "TOL",
 }
 
@@ -60,6 +71,21 @@ def _make_split(rng, n_problems, start_pid, d=8):
         "sample_idx": (np.arange(rows) % 4).astype(np.int8),
         "row_id": (start_pid * 4 + np.arange(rows)).astype(np.int32),
     }
+
+
+def _clustered_scores(rng, n_problems, rows_per=4, strength=1.0):
+    """Labels and scores where the score is constant within a problem.
+
+    Each problem has a latent difficulty; its rows' labels are Bernoulli in that
+    difficulty and its score is the difficulty plus noise, so the AUROC is well
+    above chance and the rows of a problem are strongly dependent.
+    """
+    latent = rng.normal(0, 1, n_problems)
+    p = 1.0 / (1.0 + np.exp(-strength * latent))
+    y = (rng.random((n_problems, rows_per)) < p[:, None]).astype(np.int64).reshape(-1)
+    scores = np.repeat(latent + rng.normal(0, 0.5, n_problems), rows_per)
+    groups = np.repeat(np.arange(n_problems), rows_per)
+    return y, scores, groups
 
 
 def _build_repo(tmp_path):
@@ -100,6 +126,114 @@ def test_calibrate_produces_all_keys(tmp_path):
         assert 0.0 <= result[key] <= 1.0
     assert result["BAR"] == round(result["BAR"], 2)
     assert result["TOL"] == round(result["TOL"], 2)
+    assert result["BAR_companion"] == 0.55
+    assert result["WIDTH"] == round(result["WIDTH"], 2)
+    assert 0.06 <= result["WIDTH"] <= 0.12
+    boot = result["companion_secret_bootstrap"]
+    assert boot["n_boot"] == 2000 and boot["seed"] == calibrate.BOOT_SEED
+    assert boot["n_problems"] == 10 and boot["n_rows"] == 40
+    assert boot["p2_5"] <= boot["p97_5"]
+    assert boot["sd"] >= 0.0
+    assert isinstance(boot["clears_bar_by_3sd"], bool)
+    for key in ("companion_random_scores", "companion_weak_probe"):
+        entry = result[key]
+        assert 0.0 <= entry["auroc"] <= 1.0
+        assert entry["sd"] >= 0.0
+        assert isinstance(entry["below_bar_by_3sd"], bool)
+    assert result["companion_weak_probe"]["train_rows"] == 40
+    assert len(result["companion_weak_probe"]["train_problems"]) == 10
+    by_seed = result["companion_weak_probe"]["auroc_by_seed"]
+    assert set(by_seed) == {"0", "1", "2", "3", "4"}
+    assert by_seed["0"] == pytest.approx(result["companion_weak_probe"]["auroc"])
+    assert all(0.0 <= v <= 1.0 for v in by_seed.values())
+    assert result["companion_random_scores"]["seed"] == 20261107
+    assert result["companion_leaky_gap"] == pytest.approx(
+        result["companion_leaky_estimate"] - result["companion_secret_auroc"])
+    # the result must be JSON-serialisable as written
+    json.dumps(result)
+
+
+# ---------------------------------------------------------- cluster bootstrap
+
+def test_cluster_bootstrap_is_deterministic_and_well_formed():
+    y, s, g = _clustered_scores(np.random.default_rng(1), 150)
+    a = calibrate.cluster_bootstrap_auroc(y, s, g, auroc, n_boot=300, seed=7)
+    b = calibrate.cluster_bootstrap_auroc(y, s, g, auroc, n_boot=300, seed=7)
+    assert a == b
+    assert a["point"] == pytest.approx(auroc(y, s))
+    assert a["n_clusters"] == 150 and a["n_rows"] == 600
+    assert a["n_valid"] + a["n_degenerate"] == 300 == a["n_boot"]
+    assert a["n_degenerate"] == 0
+    assert a["p2_5"] <= a["point"] <= a["p97_5"]
+    assert 0.0 < a["sd"] < 0.1
+    c = calibrate.cluster_bootstrap_auroc(y, s, g, auroc, n_boot=300, seed=8)
+    assert c["sd"] != a["sd"]  # a different seed draws different resamples
+
+
+def test_cluster_bootstrap_exceeds_row_bootstrap_on_clustered_scores():
+    """Scores constant within a problem: the effective n is the problems, so the
+    problem-level sd must be clearly larger than a row-level resample's."""
+    y, s, g = _clustered_scores(np.random.default_rng(2), 150)
+    cluster = calibrate.cluster_bootstrap_auroc(y, s, g, auroc, n_boot=2000, seed=3)
+    rows = calibrate.cluster_bootstrap_auroc(y, s, np.arange(y.size), auroc, n_boot=2000, seed=3)
+    assert cluster["sd"] > 1.15 * rows["sd"], (cluster["sd"], rows["sd"])
+
+
+def test_cluster_bootstrap_matches_row_bootstrap_when_rows_are_independent():
+    """With one row per cluster both procedures resample the same units."""
+    rng = np.random.default_rng(4)
+    y = rng.integers(0, 2, 600)
+    s = rng.normal(0, 1, 600) + 0.8 * y
+    a = calibrate.cluster_bootstrap_auroc(y, s, np.arange(600), auroc, n_boot=2000, seed=5)
+    b = calibrate.cluster_bootstrap_auroc(y, s, np.arange(600) + 1000, auroc, n_boot=2000, seed=5)
+    assert a["sd"] == pytest.approx(b["sd"])
+    assert 0.01 < a["sd"] < 0.04  # Hanley-McNeil scale for n = 600 at AUROC near 0.7
+
+
+def test_cluster_bootstrap_perfect_separation_has_zero_spread():
+    y = np.repeat([0, 1], 20)
+    s = np.repeat([0.0, 1.0], 20)
+    g = np.arange(40) // 4
+    out = calibrate.cluster_bootstrap_auroc(y, s, g, auroc, n_boot=200, seed=0)
+    assert out["point"] == 1.0
+    assert out["sd"] == 0.0
+    assert out["p2_5"] == out["p97_5"] == 1.0
+
+
+def test_cluster_bootstrap_counts_degenerate_resamples():
+    # Three clusters, one of them holding every positive: a resample that
+    # misses it has one class and must be skipped, not scored.
+    y = np.array([1, 1, 0, 0, 0, 0])
+    s = np.array([0.9, 0.8, 0.2, 0.1, 0.3, 0.4])
+    g = np.array([0, 0, 1, 1, 2, 2])
+    out = calibrate.cluster_bootstrap_auroc(y, s, g, auroc, n_boot=400, seed=0)
+    assert out["n_degenerate"] > 0
+    assert out["n_valid"] + out["n_degenerate"] == 400
+    assert out["point"] == 1.0
+
+
+def test_cluster_bootstrap_rejects_bad_input():
+    with pytest.raises(ValueError):
+        calibrate.cluster_bootstrap_auroc([0, 1], [0.1], [0, 1], auroc)
+    with pytest.raises(ValueError):
+        calibrate.cluster_bootstrap_auroc([], [], [], auroc)
+    with pytest.raises(ValueError):
+        calibrate.cluster_bootstrap_auroc([0, 1, 0, 1], [0.1, 0.2, 0.3, 0.4], [0, 0, 1, 1], auroc, n_boot=1)
+    with pytest.raises(ValueError):
+        # every resample degenerate: a single cluster holding one class only
+        calibrate.cluster_bootstrap_auroc([0, 0, 0], [0.1, 0.2, 0.3], [0, 0, 0], auroc, n_boot=10)
+
+
+def test_weak_probe_uses_the_requested_problem_count():
+    rng = np.random.default_rng(0)
+    tr = _make_split(rng, 16, 0)
+    te = _make_split(rng, 10, 500)
+    scores, problems, rows = calibrate.weak_probe_scores(
+        tr["X_prompt"].astype(np.float64), tr["y"].astype(np.int64),
+        tr["problem_id"].astype(np.int64), te["X_prompt"].astype(np.float64))
+    assert scores.shape == (40,)
+    assert len(problems) == 10 and rows == 40
+    assert len(set(problems)) == 10
 
 
 # ----------------------------------------------------------- rounding helpers
@@ -140,6 +274,49 @@ def test_bar_from_holdout(holdout, expected):
     assert calibrate.bar_from_holdout(holdout) == expected
 
 
+# -------------------------------------------------------------- WIDTH formula
+
+@pytest.mark.parametrize("sd,expected", [
+    (0.0, 0.06),        # clamp up to 0.06
+    (0.01, 0.06),       # 4*sd = 0.04 -> clamp up
+    (0.0127, 0.06),     # 4*sd = 0.0508 -> ceil 0.06
+    (0.015, 0.06),      # 4*sd = 0.06 exactly
+    (0.0151, 0.07),     # 4*sd = 0.0604 -> ceil 0.07
+    (0.02, 0.08),       # 4*sd = 0.08 exactly
+    (0.0201, 0.09),     # ceil
+    (0.031, 0.12),      # 4*sd = 0.124 -> clamp down to 0.12
+    (0.05, 0.12),       # clamp down
+])
+def test_width_from_sd(sd, expected):
+    assert calibrate.width_from_sd(sd) == expected
+
+
+def test_width_from_sd_rejects_bad_sd():
+    with pytest.raises(ValueError):
+        calibrate.width_from_sd(float("nan"))
+    with pytest.raises(ValueError):
+        calibrate.width_from_sd(-0.01)
+
+
+@pytest.mark.parametrize("bar,point,sd,expected", [
+    (0.55, 0.48, 0.02, True),     # 0.07 >= 0.06
+    (0.55, 0.50, 0.02, False),    # 0.05 < 0.06
+    (0.55, 0.49, 0.02, True),     # 0.06 >= 0.06 (boundary)
+    (0.55, 0.60, 0.01, False),    # above the bar
+])
+def test_below_bar_by_sd(bar, point, sd, expected):
+    assert calibrate.below_bar_by_sd(bar, point, sd) is expected
+
+
+@pytest.mark.parametrize("bar,point,sd,expected", [
+    (0.55, 0.663, 0.031, True),   # 0.113 >= 0.093
+    (0.55, 0.60, 0.031, False),   # 0.05 < 0.093
+    (0.55, 0.60, 0.0127, True),   # 0.05 >= 0.0381
+])
+def test_above_bar_by_sd(bar, point, sd, expected):
+    assert calibrate.above_bar_by_sd(bar, point, sd) is expected
+
+
 # ---------------------------------------------------------------- TOL formula
 
 @pytest.mark.parametrize("gap_sd,expected", [
@@ -175,28 +352,48 @@ def test_check_loud_failures_clean_passes():
         "leaky_row_cv_prompt": 0.75,  # gap 0.15 >= 0.10
         "holdout_auroc_per_legit": {"L1": 0.66, "L2": 0.83},
         "companion_secret_auroc": 0.70,
+        "companion_secret_bootstrap": {"sd": 0.03, "clears_bar_by_3sd": True},
     }
     assert calibrate.check_loud_failures(result) == []
 
 
+def test_check_loud_failures_flags_companion_too_close_to_its_bar():
+    result = {
+        "BAR": 0.62,
+        "honest_cv_prompt": 0.60,
+        "leaky_row_cv_prompt": 0.75,
+        "holdout_auroc_per_legit": {"L1": 0.66},
+        "companion_secret_auroc": 0.60,  # 0.05 above 0.55, sd 0.03 needs 0.09
+        "companion_secret_bootstrap": {"sd": 0.03, "clears_bar_by_3sd": False},
+    }
+    failures = calibrate.check_loud_failures(result)
+    assert any("BAR_companion" in f for f in failures)
+
+
 def test_check_trap_robustness_clean_passes():
     result = {
-        "TOL": 0.05,
-        "companion_secret_auroc": 0.70,
-        "companion_leaky_estimate": 0.80,   # |0.80-0.70| = 0.10 > 0.06
-        "companion_grouped_estimate": 0.71,  # |0.71-0.70| = 0.01
-        "companion_estimate_gap_sd": 0.01,   # 0.01 + 0.01 = 0.02 < 0.05
+        "WIDTH": 0.06,
+        "companion_secret_auroc": 0.66,
+        "companion_leaky_estimate": 0.78,   # gap 0.12 > 0.06
+        "companion_grouped_estimate": 0.65,  # gap 0.01 < 0.03
+        "companion_random_scores": {"auroc": 0.49, "sd": 0.01, "below_bar_by_3sd": True},
+        "companion_weak_probe": {"auroc": 0.51, "sd": 0.01, "below_bar_by_3sd": True},
     }
     assert calibrate.check_trap_robustness(result) == []
 
 
-def test_check_trap_robustness_flags_overlap():
+def test_check_trap_robustness_flags_every_overlap():
     result = {
-        "TOL": 0.05,
-        "companion_secret_auroc": 0.70,
-        "companion_leaky_estimate": 0.72,   # |0.72-0.70| = 0.02, not > 0.06
-        "companion_grouped_estimate": 0.76,  # |0.76-0.70| = 0.06, not < 0.05
-        "companion_estimate_gap_sd": 0.02,
+        "WIDTH": 0.12,
+        "companion_secret_auroc": 0.66,
+        "companion_leaky_estimate": 0.75,   # gap 0.09, not > 0.12
+        "companion_grouped_estimate": 0.59,  # gap 0.07, not < 0.06
+        "companion_random_scores": {"auroc": 0.49, "sd": 0.03, "below_bar_by_3sd": False},
+        "companion_weak_probe": {"auroc": 0.53, "sd": 0.03, "below_bar_by_3sd": False},
     }
     concerns = calibrate.check_trap_robustness(result)
-    assert len(concerns) == 2
+    assert len(concerns) == 4
+    assert any("naive estimate" in c for c in concerns)
+    assert any("honest estimate" in c for c in concerns)
+    assert any("random scores" in c for c in concerns)
+    assert any("weak probe" in c for c in concerns)

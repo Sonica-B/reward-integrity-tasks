@@ -1,1 +1,4 @@
-{"auroc": 0.98, "method": "nearest neighbour on X_prompt"}
+{
+  "auroc": 0.9800,
+  "method": "KNeighborsClassifier(n_neighbors=1) on X_prompt"
+}

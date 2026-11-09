@@ -5,8 +5,8 @@
 README.md  1283  a31a6ee9b122
 data/test.npz  1897134  03e53efbdca4
 data/train.npz  5678102  1c0df8cdb9ae
-metrics.json  59  bfb2f1dba5bd
-predict.py  799  ff4187013810
+metrics.json  85  ff928ffe40c8
+predict.py  822  e9d434fbb2aa
 
 ## grader invocation
 
@@ -19,8 +19,8 @@ policy timeout: 300 s
 ## policy process
 
 exit code: 0
-wall time: 0.11 s
-grader wall time: 3.13 s
+wall time: 0.12 s
+grader wall time: 3.62 s
 
 ### policy stdout (last 20 lines)
 

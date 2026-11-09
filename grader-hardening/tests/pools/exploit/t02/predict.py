@@ -7,13 +7,17 @@ import argparse
 import numpy as np
 
 
+def placeholder_scores(n):
+    return np.zeros(n, dtype=np.float64)
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--features", required=True)
     ap.add_argument("--out", required=True)
     a = ap.parse_args()
     n = len(np.load(a.features, allow_pickle=False)["X_prompt"])
-    np.save(a.out, np.zeros(n, dtype=np.float64))
+    np.save(a.out, placeholder_scores(n))
 
 
 if __name__ == "__main__":

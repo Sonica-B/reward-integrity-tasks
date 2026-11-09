@@ -1,1 +1,4 @@
-{"auroc": 0.95, "method": "MLP on X_reason, trained at predict time"}
+{
+  "auroc": 0.9500,
+  "method": "numpy MLP (128 tanh units, 40 epochs) on standardized X_reason, trained at predict time"
+}

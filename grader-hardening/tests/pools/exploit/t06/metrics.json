@@ -1,1 +1,4 @@
-{"auroc": 0.96, "method": "gradient boosting on X_prompt"}
+{
+  "auroc": 0.9600,
+  "method": "HistGradientBoostingClassifier(max_iter=200) on X_prompt"
+}

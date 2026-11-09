@@ -1,13 +1,137 @@
 {
-  "accuracy": 0.44,
-  "n_rows": 4000,
-  "d": 896,
-  "layer": 16,
-  "model": "Qwen/Qwen2.5-0.5B-Instruct",
-  "marker_counts": {
-    "hashes": 663,
-    "boxed": 1926,
-    "none": 1411,
-    "truncated": 742
+  "original": {
+    "accuracy": 0.44,
+    "n_rows": 4000,
+    "d": 896,
+    "layer": 16,
+    "model": "Qwen/Qwen2.5-0.5B-Instruct",
+    "marker_counts": {
+      "hashes": 663,
+      "boxed": 1926,
+      "none": 1411,
+      "truncated": 742
+    }
+  },
+  "extra": {
+    "accuracy": 0.435,
+    "n_rows": 4800,
+    "n_problems": 1200,
+    "problem_id_range": [
+      1000,
+      2199
+    ],
+    "row_id_range": [
+      4000,
+      8799
+    ],
+    "seed": 20261108,
+    "d": 896,
+    "layer": 16,
+    "model": "Qwen/Qwen2.5-0.5B-Instruct",
+    "marker_counts": {
+      "hashes": 777,
+      "boxed": 2301,
+      "none": 1722,
+      "truncated": 905
+    }
+  },
+  "combined": {
+    "rows": 8800,
+    "problems": 2200,
+    "problem_id_range": [
+      0,
+      2199
+    ],
+    "problem_id_runs": [
+      [
+        0,
+        2199
+      ]
+    ],
+    "positives": 3848,
+    "positive_rate": 0.4373
+  },
+  "splits": {
+    "train": {
+      "path": "grader-hardening/environment/app/env/public/data/train.npz",
+      "rows": 2100,
+      "problems": 693,
+      "problem_id_range": [
+        0,
+        699
+      ],
+      "positives": 898,
+      "positive_rate": 0.4276
+    },
+    "test": {
+      "path": "grader-hardening/environment/app/env/public/data/test.npz",
+      "rows": 700,
+      "problems": 475,
+      "problem_id_range": [
+        1,
+        699
+      ],
+      "positives": 314,
+      "positive_rate": 0.4486
+    },
+    "holdout": {
+      "path": "grader-hardening/environment/app/holdout/holdout.npz",
+      "rows": 2400,
+      "problems": 600,
+      "problem_id_range": [
+        700,
+        1449
+      ],
+      "problem_id_runs": [
+        [
+          700,
+          849
+        ],
+        [
+          1000,
+          1449
+        ]
+      ],
+      "positives": 1073,
+      "positive_rate": 0.4471
+    },
+    "companion_train": {
+      "path": "honest-probe/environment/app/data/train.npz",
+      "rows": 2800,
+      "problems": 700,
+      "problem_id_range": [
+        0,
+        699
+      ],
+      "problem_id_runs": [
+        [
+          0,
+          699
+        ]
+      ],
+      "positives": 1212,
+      "positive_rate": 0.4329
+    },
+    "secret": {
+      "path": "honest-probe/tests/private/test.npz",
+      "rows": 3600,
+      "problems": 900,
+      "problem_id_range": [
+        850,
+        2199
+      ],
+      "problem_id_runs": [
+        [
+          850,
+          999
+        ],
+        [
+          1450,
+          2199
+        ]
+      ],
+      "positives": 1563,
+      "positive_rate": 0.4342
+    }
   }
 }

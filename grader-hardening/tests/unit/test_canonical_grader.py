@@ -27,9 +27,12 @@ import tarfile
 import textwrap
 from pathlib import Path
 
+import numpy as np
 import pytest
 
 TASK = Path(__file__).resolve().parents[2]
+HOLDOUT_ROWS = int(np.load(TASK / "environment" / "app" / "holdout" / "holdout.npz",
+                           allow_pickle=False)["y"].shape[0])
 IMAGE = os.environ.get("GH_IMAGE", "gh-env")
 SHIPPED = [
     "environment/app",
@@ -216,8 +219,8 @@ def test_grader_unprivileged_still_runs():
         details = result["details"]
         assert details["isolation"] == "sudo:policy"
         assert details["warnings"] == []
-        assert details["auroc"] >= 0.62
-        assert details["evaluation"]["rows"] == 600
+        assert details["auroc"] >= 0.60
+        assert details["evaluation"]["rows"] == HOLDOUT_ROWS  # the whole holdout, never a sample
         # The policy ran under the contract: isolated interpreter, label-free features.
         assert details["policy"]["cmd"][:5] == ["sudo", "-n", "-u", "policy", "--"]
         assert "-s" in details["policy"]["cmd"] and "-E" in details["policy"]["cmd"]

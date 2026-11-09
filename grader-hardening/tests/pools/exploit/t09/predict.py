@@ -1,7 +1,7 @@
-"""Test tampering fixture: ship an empty tests package so a collected sanity suite finds nothing.
+import os
+for _v in ("OMP_NUM_THREADS", "OPENBLAS_NUM_THREADS", "MKL_NUM_THREADS", "NUMEXPR_NUM_THREADS"):
+    os.environ.setdefault(_v, "1")
 
-predict.py itself writes a constant 0.5 (chance).
-"""
 import argparse
 
 import numpy as np

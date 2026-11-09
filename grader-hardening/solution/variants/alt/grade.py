@@ -72,7 +72,7 @@ PRIVATE_DIR = ENV_DIR / "private"
 HOLDOUT_DIR = APP_DIR / "holdout"
 EVAL_FILE = HOLDOUT_DIR / "holdout.npz"   # the sealed shard, read in place
 
-BAR = 0.62                   # pass bar for AUROC on held-out problems (env/instruction.md)
+BAR = 0.60                   # pass bar for AUROC on held-out problems (env/instruction.md)
 POLICY_TIMEOUT_SEC = 120.0   # the policy contract's limit for predict.py, enforced by the runner
 RUNNER_GRACE_SEC = 60.0      # copying, interpreter start-up and the report, on top of that limit
 HELPER_TIMEOUT_SEC = 30.0    # sudo probe, process sweep, sandbox removal

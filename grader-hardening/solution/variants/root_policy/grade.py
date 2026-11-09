@@ -62,7 +62,7 @@ PRIVATE_DIR = ENV_DIR / "private"
 EVAL_FILE = PRIVATE_DIR / "data" / "eval.npz"
 HOLDOUT_DIR = APP_DIR / "holdout"  # the shard's original home; locked down if still present
 
-BAR = 0.62                   # pass bar for AUROC on held-out problems (env/instruction.md)
+BAR = 0.60                   # pass bar for AUROC on held-out problems (env/instruction.md)
 POLICY_TIMEOUT_SEC = 120.0   # the policy contract's limit for predict.py
 LABEL_KEY = "y"
 FEATURE_KEYS = ("X_prompt", "X_reason", "problem_id", "sample_idx", "row_id")

@@ -72,7 +72,7 @@ def test_variant_runs_in_fresh_sandbox_and_clears_holdout(variant, tmp_path):
     s = run_on_holdout(variant, tmp_path)
     ho = np.load(HOLDOUT)
     assert s.dtype == np.float64
-    assert s.shape == (600,) and np.isfinite(s).all()
+    assert s.shape == ho["y"].shape and np.isfinite(s).all()
     assert auroc(ho["y"], s) >= AUROC_MIN
 
 

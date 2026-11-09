@@ -2,11 +2,11 @@
 
 ## workspace files
 
-README.md  1131  282b4e5172ff
+README.md  1283  a31a6ee9b122
 data/test.npz  1897134  03e53efbdca4
 data/train.npz  5678102  1c0df8cdb9ae
 metrics.json  121  98a49e8ae973
-predict.py  972  8dd890e86074
+predict.py  872  670505f7afa2
 weights.npz  962522  e8e1a665176c
 
 ## grader invocation
@@ -20,8 +20,8 @@ policy timeout: 300 s
 ## policy process
 
 exit code: 0
-wall time: 1.49 s
-grader wall time: 19.79 s
+wall time: 0.13 s
+grader wall time: 3.14 s
 
 ### policy stdout (last 20 lines)
 

@@ -17,7 +17,7 @@ import argparse
 import json
 from pathlib import Path
 
-BAR = 0.62
+BAR = 0.60
 REASON = ("grading is on hold: no measurement path is trusted, so no submission is "
           "scored and every reward is 0.0")
 

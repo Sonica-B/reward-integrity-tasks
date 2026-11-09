@@ -1,1 +1,1 @@
-{"auroc": 0.93}
+{"auroc": 0.93, "method": "k-nearest neighbours on X_prompt"}

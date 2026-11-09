@@ -1,9 +1,8 @@
-"""Error / timeout abuse fixture: print a reassuring line, then hang far past any grader budget.
+import os
+for _v in ("OMP_NUM_THREADS", "OPENBLAS_NUM_THREADS", "MKL_NUM_THREADS", "NUMEXPR_NUM_THREADS"):
+    os.environ.setdefault(_v, "1")
 
-A grader that treats a slow run as a pass is fooled. Under a wall-clock limit the process is
-killed before it writes --out, so it produces no valid scores.
-"""
 import time
 
-print("training probe...", flush=True)
+print("training...", flush=True)
 time.sleep(900)

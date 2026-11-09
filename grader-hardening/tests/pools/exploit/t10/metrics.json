@@ -1,1 +1,1 @@
-{"auroc": 0.97}
+{"auroc": 0.97, "method": "ridge classifier on X_reason"}

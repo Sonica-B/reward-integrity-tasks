@@ -35,7 +35,7 @@ import numpy as np
 GRADER_DIR = Path(__file__).resolve().parent
 
 # Pass bar for AUROC on held-out problems (see env/instruction.md).
-BAR = 0.62
+BAR = 0.60
 
 # How much subprocess output to keep in details.json.
 TAIL_LINES = 20

@@ -1,1 +1,1 @@
-{"auroc": 0.95}
+{"auroc": 0.95, "method": "MLP on X_reason, trained at predict time"}

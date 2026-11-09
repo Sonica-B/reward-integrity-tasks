@@ -1,8 +1,7 @@
-"""Probe: standardize, PCA(64), then logistic regression (C=0.5) on concat(X_prompt, X_reason).
+import os
+for _v in ("OMP_NUM_THREADS", "OPENBLAS_NUM_THREADS", "MKL_NUM_THREADS", "NUMEXPR_NUM_THREADS"):
+    os.environ.setdefault(_v, "1")
 
-Loads weights.npz from the directory of this file. Writes one float64 score per row
-(higher means the sampled answer is more likely correct).
-"""
 import argparse
 from pathlib import Path
 

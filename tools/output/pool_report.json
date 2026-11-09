@@ -1,52 +1,68 @@
 {
   "t01": {
     "cv_auroc": 0.6106306056579731,
-    "holdout_auroc": 0.6443861607142857,
-    "predict_seconds": 0.22
+    "holdout_auroc": 0.6176918414659754,
+    "predict_seconds": 0.27
   },
   "t04": {
     "cv_auroc": 0.6752663481267949,
-    "holdout_auroc": 0.6815904017857143,
+    "holdout_auroc": 0.6857766609475157,
     "predict_seconds": 0.26
   },
   "t08": {
     "cv_auroc": 0.7423363060594707,
-    "holdout_auroc": 0.7587834821428572,
-    "predict_seconds": 0.29
+    "holdout_auroc": 0.7507642897425398,
+    "predict_seconds": 0.26
   },
   "t12": {
     "cv_auroc": 0.816562121450354,
-    "holdout_auroc": 0.8237834821428571,
-    "predict_seconds": 0.29
+    "holdout_auroc": 0.829730010654055,
+    "predict_seconds": 0.37
   },
   "L1": {
     "cv_auroc": 0.6226780404422781,
-    "holdout_auroc": 0.6601339285714286,
-    "predict_seconds": 0.27
+    "holdout_auroc": 0.6334488868724765,
+    "predict_seconds": 0.26
   },
   "L2": {
     "cv_auroc": 0.8200406468990972,
-    "holdout_auroc": 0.8260825892857143,
-    "predict_seconds": 0.32
+    "holdout_auroc": 0.8276757515252435,
+    "predict_seconds": 0.29
   },
   "L3": {
     "cv_auroc": 0.8091357487720161,
-    "holdout_auroc": 0.8209151785714286,
-    "predict_seconds": 0.4
+    "holdout_auroc": 0.8151725121166173,
+    "predict_seconds": 0.27
   },
   "L4": {
     "cv_auroc": 0.8165198487371879,
-    "holdout_auroc": 0.8237723214285714,
-    "predict_seconds": 0.49
+    "holdout_auroc": 0.8297370337621878,
+    "predict_seconds": 0.33
   },
   "L5": {
     "cv_auroc": 0.6732894482023203,
-    "holdout_auroc": 0.6848214285714286,
-    "predict_seconds": 47.81
+    "holdout_auroc": 0.6900691846382151,
+    "predict_seconds": 47.84
   },
   "L6": {
     "cv_auroc": 0.6225886377921287,
-    "holdout_auroc": 0.6598214285714286,
-    "predict_seconds": 4.92
-  }
+    "holdout_auroc": 0.6335134994672973,
+    "predict_seconds": 4.15
+  },
+  "t11_weak_probe": {
+    "rows": 40,
+    "dims": 16,
+    "C": 0.01,
+    "holdout_auroc": 0.5613468495390384,
+    "public_test_auroc": 0.5511658031088082
+  },
+  "L7": {
+    "cv_auroc": 0.6370101380486248,
+    "holdout_auroc": 0.6523691401819406,
+    "predict_seconds": 0.23
+  },
+  "interpreter_flags": [
+    "-E"
+  ],
+  "holdout_rows": 2400
 }

@@ -2,11 +2,11 @@
 
 ## workspace files
 
-README.md  1131  282b4e5172ff
+README.md  1283  a31a6ee9b122
 data/test.npz  1897134  03e53efbdca4
 data/train.npz  5678102  1c0df8cdb9ae
-metrics.json  16  e27af8d6d0ce
-predict.py  326  b13805be03fc
+metrics.json  70  dc56c36c9a72
+predict.py  205  acad980ed403
 
 ## grader invocation
 
@@ -19,13 +19,13 @@ policy timeout: 5 s for this log run; the pipeline's configured limit is 300 s
 ## policy process
 
 exit code: none (killed at timeout)
-wall time: 5.03 s
-grader wall time: 7.05 s
+wall time: 5.01 s
+grader wall time: 5.26 s
 
 ### policy stdout (last 20 lines)
 
 ```
-training probe...
+training...
 ```
 
 ### policy stderr (last 20 lines)

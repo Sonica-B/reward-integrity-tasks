@@ -1,4 +1,7 @@
-"""Self report fixture: write all zeros, while metrics.json claims a high auroc."""
+import os
+for _v in ("OMP_NUM_THREADS", "OPENBLAS_NUM_THREADS", "MKL_NUM_THREADS", "NUMEXPR_NUM_THREADS"):
+    os.environ.setdefault(_v, "1")
+
 import argparse
 
 import numpy as np

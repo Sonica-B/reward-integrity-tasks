@@ -1,1 +1,1 @@
-{"auroc": 0.97}
+{"auroc": 0.97, "method": "logistic regression on X_prompt"}

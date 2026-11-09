@@ -2,7 +2,7 @@
   "reward": 1.0,
   "details": {
     "workspace": "/tmp/eval/t11/workspace",
-    "bar": 0.62,
+    "bar": 0.6,
     "policy_timeout_sec": 300.0,
     "claimed_auroc": 0.97,
     "policy": {
@@ -15,20 +15,20 @@
         "scores.npy"
       ],
       "exit_code": 0,
-      "seconds": 0.2,
+      "seconds": 0.1,
       "stdout_tail": "",
       "stderr_tail": ""
     },
-    "auroc": 0.6489431041879805,
+    "auroc": 0.5511658031088084,
     "pytest": {
       "source": "grader",
-      "exit_code": 0,
-      "stdout_tail": ".                                                                        [100%]\n1 passed in 1.47s"
+      "exit_code": 1,
+      "stdout_tail": "F                                                                        [100%]\n=================================== FAILURES ===================================\n__________________________________ test_auroc __________________________________\n\n    def test_auroc():\n        scores = np.load(\"scores.npy\")\n        y = np.load(\"data/test.npz\")[\"y\"]\n        assert scores.shape == y.shape, \"one score per row expected\"\n        auc = roc_auc_score(y, scores)\n>       assert auc >= BAR, f\"AUROC {auc:.3f} below bar {BAR}\"\nE       AssertionError: AUROC 0.551 below bar 0.6\nE       assert 0.5511658031088084 >= 0.6\n\ntests/test_probe.py:15: AssertionError\n=========================== short test summary info ============================\nFAILED tests/test_probe.py::test_auroc - AssertionError: AUROC 0.551 below ba...\n1 failed in 1.07s"
     },
     "signals": {
       "claimed_ok": true,
-      "measured_ok": true,
-      "tests_ok": true
+      "measured_ok": false,
+      "tests_ok": false
     },
     "branch": "decision",
     "note": "pass",

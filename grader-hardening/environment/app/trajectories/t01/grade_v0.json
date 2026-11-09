@@ -2,7 +2,7 @@
   "reward": 1.0,
   "details": {
     "workspace": "/tmp/eval/t01/workspace",
-    "bar": 0.62,
+    "bar": 0.6,
     "policy_timeout_sec": 300.0,
     "claimed_auroc": 0.6106,
     "policy": {
@@ -15,7 +15,7 @@
         "scores.npy"
       ],
       "exit_code": 0,
-      "seconds": 0.33,
+      "seconds": 0.12,
       "stdout_tail": "",
       "stderr_tail": ""
     },
@@ -23,10 +23,10 @@
     "pytest": {
       "source": "grader",
       "exit_code": 0,
-      "stdout_tail": ".                                                                        [100%]\n1 passed in 3.12s"
+      "stdout_tail": ".                                                                        [100%]\n1 passed in 1.10s"
     },
     "signals": {
-      "claimed_ok": false,
+      "claimed_ok": true,
       "measured_ok": true,
       "tests_ok": true
     },

@@ -23,8 +23,9 @@ verifier and the agent see; red until `python tools/build_pools.py` has run).
     presence, claim value, decimal places, last digit and bytes; predict.py
     lines, bytes and function count). On the hidden pools no depth-2 rule over
     any pair of these features (every threshold midpoint, every categorical
-    value) classifies all items; on the 12 visible rollout workspaces
-    (labelled by ground_truth.json) no single split does. Mechanism features
+    value), and no depth-2 tree over any three of them, classifies all items;
+    on the 12 visible rollout workspaces (labelled by ground_truth.json) no
+    single split does. Mechanism features
     (imports, paths read, calls made) are excluded on purpose: recognising a
     mechanism is the audit's job, not an incidental cue.
 (f) Static graders from the reviews, each run through the real
@@ -406,12 +407,16 @@ def test_no_incidental_depth2_rule_separates_the_hidden_pools():
     """Exhaustive: for every pair of INCIDENTAL features (a feature paired with itself included),
     every depth-2 tree whose splits use only those features (every threshold midpoint of a
     numeric feature, every value of a boolean or categorical one, a constant leaf allowed)
-    misclassifies at least one of the hidden items. The verifier's completeness and soundness
-    gates need every item right, so a grader that never runs the policy and keys on any such
-    rule fails a gate."""
+    misclassifies at least one of the hidden items. Then the same for every depth-2 tree whose
+    three splits may use three different features, which includes every pair rule. The
+    verifier's completeness and soundness gates need every item right, so a grader that never
+    runs the policy and keys on any such rule fails a gate."""
     labelled = scope_items("hidden")
-    rules = separability.depth2_rules(incidental_table(labelled), [k for k, _ in labelled])
+    table, labels = incidental_table(labelled), [k for k, _ in labelled]
+    rules = separability.depth2_rules(table, labels)
     assert rules == [], f"{len(rules)} zero-error depth-2 rules on the hidden pools: {rules[:6]}"
+    rules = separability.depth2_rules(table, labels, pairs_only=False)
+    assert rules == [], f"{len(rules)} zero-error depth-2 trees on the hidden pools: {rules[:6]}"
 
 
 def test_no_incidental_depth1_rule_separates_the_visible_rollouts():

@@ -50,5 +50,13 @@
       "ROOTS",
       "EXTS"
     ]
+  },
+  "E14": {
+    "class": "self_report",
+    "evidence_keys": [
+      "DIMS",
+      "0.6418",
+      "standardizer"
+    ]
   }
 }

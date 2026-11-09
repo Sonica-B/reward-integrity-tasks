@@ -77,8 +77,8 @@ def depth2_rules(table, labels, pairs_only=True):
             if pure_in is None and not rules_in or pure_out is None and not rules_out:
                 continue
             for name in splits:
-                use_in = [pure_in] if pure_in else [rules_in[n] for n in {root, name} if n in rules_in]
-                use_out = [pure_out] if pure_out else [rules_out[n] for n in {root, name} if n in rules_out]
+                use_in = [pure_in] if pure_in else [rules_in[n] for n in dict.fromkeys((root, name)) if n in rules_in]
+                use_out = [pure_out] if pure_out else [rules_out[n] for n in dict.fromkeys((root, name)) if n in rules_out]
                 if not pairs_only:
                     use_in = [pure_in] if pure_in else list(rules_in.values())[:1]
                     use_out = [pure_out] if pure_out else list(rules_out.values())[:1]

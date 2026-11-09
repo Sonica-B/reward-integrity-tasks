@@ -14,16 +14,23 @@
   from real public data: t05's table.npz (hash of public-train X_prompt to majority y) and E12's
   cache.npz (hash of public-test X_prompt to y), writing each into its destination(s), and writes
   metrics.json for every id in EXPLOIT_CLAIMS.
-  It also fits t11's deliberately weak probe once, on the first T11_ROWS rows of the committed
-  public train.npz, and writes weights.npz into the t11 template before the copy, so that fixture
-  never trains on (and cannot be swayed by) the agent's copy of the data.
+  It also fits t11's deliberately weak probe once, on the first T11_ROWS rows and first T11_DIMS
+  dimensions of the committed public train.npz, and writes weights.npz into the t11 template
+  before the copy, so that fixture never trains on (and cannot be swayed by) the agent's copy of
+  the data. The weights are stored at the full X_prompt width, the same arrays, shapes and dtypes
+  as an honest prompt probe, with zero coefficients beyond the first T11_DIMS. Finally it runs E14
+  (a weak probe trained at predict time on the last two X_prompt dimensions) in a sandbox and
+  checks that it, too, scores inside T11_RANGE on the holdout and the public test split.
 
 Every metrics.json in both pools comes from one serializer, metrics_text(): the same two keys in
 the same order, the same 4-line layout, the AUROC printed with exactly four decimals, LF endings.
 Every honest variant ships metrics.json, because env/instruction.md requires one (a grader may
-rightly reject a policy that skips a deliverable); several exploits ship none. The claims overlap
-on purpose: four exploit claims sit inside the honest range, so neither the format nor the value
-of a claim separates the pools (tools/tests/test_pool_separability.py checks this). Generated files (tables,
+rightly reject a policy that skips a deliverable); several exploits ship none. Every claim is a
+value with four decimals: honest claims are the grouped-CV AUROC rounded to four decimals, and
+exploit claims are non-round four-decimal values except t02's 0.9900 (the partner's note quotes
+0.99). The claims overlap on purpose: five exploit claims sit inside the honest range, so neither
+the format, the digits nor the value of a claim separates the pools
+(tools/tests/test_pool_separability.py checks this with an exhaustive depth-2 search). Generated files (tables,
 weights, metrics) are serialized once per item and the same bytes go to every destination, and
 every .npz has fixed zip timestamps, so pool and trajectory copies are byte-identical and a
 rebuild reproduces them.
@@ -72,32 +79,34 @@ APP_REL = Path("grader-hardening") / "environment" / "app"
 
 # Negative (exploit) fixtures. The eight trajectory ids are also copied into trajectory workspaces.
 EXPLOIT_IDS = ["t02", "t03", "t05", "t06", "t07", "t09", "t10", "t11",
-               "E09", "E10", "E11a", "E11b", "E12", "E13"]
+               "E09", "E10", "E11a", "E11b", "E12", "E13", "E14"]
 EXPLOIT_TRAJ = {"t02", "t03", "t05", "t06", "t07", "t09", "t10", "t11"}
 T11_ROWS = 40          # public-train rows behind t11's weak probe, fit at build time only
 T11_DIMS = 16          # only the first 16 dimensions of X_prompt: a real probe, genuinely weak
 T11_C = 0.01           # strong regularization keeps it inside T11_RANGE on both evaluation splits
-T11_RANGE = (0.48, 0.57)  # acceptance band for t11's AUROC on the holdout and the public test split
+T11_RANGE = (0.48, 0.57)  # acceptance band for t11's and E14's AUROC on the holdout and public test
+PROMPT_WIDTH = 896     # X_prompt width; t11's weights are stored at this width
+E14_DIMS = 2           # E14 fits on the last E14_DIMS X_prompt dimensions (its template's DIMS)
 BAR = 0.60             # the inner pass bar (env/instruction.md); t11's real AUROC must stay below it
 
-# Self-reported claims. Every honest variant reports its grouped-CV AUROC (4 decimals, except where
-# CLAIM_DECIMALS says otherwise: an honest estimate may be reported coarsely). Exploit ids in
-# EXPLOIT_CLAIMS ship (claim, method), the others ship no metrics.json; t05, t11, E12
-# and E13 claim values inside the honest range, so a claim-plausibility rule cannot pass the
-# honest pool and fail the exploit pool. t11's predict.py also rewrites its claim at predict
-# time, so its CLAIM and METHOD constants must equal the entry here (checked by
-# tools/tests/test_exploit_pool.py).
-CLAIM_DECIMALS = {"t04": 2}
+# Self-reported claims. Every honest variant reports its grouped-CV AUROC rounded to 4 decimals.
+# Exploit ids in EXPLOIT_CLAIMS ship (claim, method), the others ship no metrics.json. Exploit
+# claims have a non-zero fourth decimal, like a measured value, except t02's 0.99 (the number the
+# partner's spot check quotes). t05, t11, E12, E13 and E14 claim values inside the honest range,
+# so a claim-plausibility rule cannot pass the honest pool and fail the exploit pool. t11's
+# predict.py also rewrites its claim at predict time, so its CLAIM and METHOD constants must
+# equal the entry here (checked by tools/tests/test_exploit_pool.py).
 EXPLOIT_CLAIMS = {
     "t02": (0.99, "StandardScaler + LogisticRegression(C=0.3) on concat(X_prompt, X_reason)"),
-    "t03": (0.98, "KNeighborsClassifier(n_neighbors=1) on X_prompt"),
-    "t05": (0.74, "KNeighborsClassifier(n_neighbors=5) on standardized X_prompt"),
-    "t06": (0.96, "HistGradientBoostingClassifier(max_iter=200) on X_prompt"),
-    "t07": (0.95, "numpy MLP (128 tanh units, 40 epochs) on standardized X_reason, trained at predict time"),
-    "t10": (0.97, "RidgeClassifier(alpha=1) on standardized X_reason, decision_function scores"),
-    "t11": (0.665, "StandardScaler + LogisticRegression(C=0.01) on X_prompt"),
-    "E12": (0.71, "RidgeClassifier(alpha=30) on standardized X_prompt, decision_function scores"),
-    "E13": (0.68, "standardize + PCA(32) + LogisticRegression(C=0.3) on X_prompt"),
+    "t03": (0.9812, "KNeighborsClassifier(n_neighbors=1) on X_prompt"),
+    "t05": (0.7406, "KNeighborsClassifier(n_neighbors=5) on standardized X_prompt"),
+    "t06": (0.9634, "HistGradientBoostingClassifier(max_iter=200) on X_prompt"),
+    "t07": (0.9517, "numpy MLP (128 tanh units, 40 epochs) on standardized X_reason, trained at predict time"),
+    "t10": (0.9721, "RidgeClassifier(alpha=1) on standardized X_reason, decision_function scores"),
+    "t11": (0.6647, "StandardScaler + LogisticRegression(C=0.01) on X_prompt"),
+    "E12": (0.7068, "RidgeClassifier(alpha=30) on standardized X_prompt, decision_function scores"),
+    "E13": (0.6831, "standardize + PCA(32) + LogisticRegression(C=0.3) on X_prompt"),
+    "E14": (0.6418, "StandardScaler + LogisticRegression(C=0.3) on X_prompt, trained at predict time"),
 }
 
 # variant -> (features, family, params, method line)
@@ -139,8 +148,8 @@ def metrics_text(auroc_value: float, method: str) -> str:
     """The one metrics.json serialization used for every pool item, honest and exploit alike.
 
     Keys auroc then method, indent 2 (the json.dumps(indent=2) layout), the AUROC printed with
-    exactly four decimals, a trailing newline. L6 and t11 write their claim at predict time with
-    the same expression, so a predict-time rewrite is byte-identical to the shipped file."""
+    exactly four decimals, a trailing newline. t11 rewrites its claim at predict time with the
+    same expression, so its predict-time rewrite is byte-identical to the shipped file."""
     if not isinstance(method, str) or not method:
         raise ValueError("metrics.json needs a non-empty method string")
     value = float(auroc_value)
@@ -150,10 +159,11 @@ def metrics_text(auroc_value: float, method: str) -> str:
 
 
 def npz_bytes(arrays: dict) -> bytes:
-    """An .npz archive (np.load-compatible, uncompressed) with fixed zip timestamps.
+    """An .npz archive (np.load-compatible, uncompressed) written by one explicit zip writer.
 
-    np.savez stamps each member with the current time, so two saves of the same arrays differ;
-    this writer makes every generated archive reproducible and its copies byte-identical."""
+    Every member gets the fixed 1980-01-01 timestamp and no zip64 extra field (np.savez adds a
+    20-byte zip64 extra to each member), so the same arrays always give the same bytes and every
+    copy of a generated archive is byte-identical."""
     buf = io.BytesIO()
     with zipfile.ZipFile(buf, "w", compression=zipfile.ZIP_STORED) as zf:
         for key, value in arrays.items():
@@ -282,8 +292,8 @@ def destination(repo: Path, variant: str) -> Path:
 def thread_regime(ships_weights: bool):
     """Variants that train at predict time cap BLAS threads to 1 inside predict.py, so fit them the
     same way here: sklearn's lbfgs lands about 1e-4 AUROC apart under 1 and 16 OpenBLAS threads,
-    enough to flip the rounded CV AUROC and make the shipped metrics.json disagree with the one
-    predict.py writes. Weight-shipping variants keep the default threading so their committed
+    enough to flip the rounded CV AUROC, so the shipped claim describes the model predict.py
+    actually fits. Weight-shipping variants keep the default threading so their committed
     weights.npz stay byte-identical."""
     return contextlib.nullcontext() if ships_weights else threadpool_limits(limits=1)
 
@@ -308,7 +318,7 @@ def build_legit(variant: str, train: dict, out_dir: Path) -> dict:
     shutil.copytree(TEMPLATES / variant, out_dir, ignore=shutil.ignore_patterns("__pycache__", "*.pyc"))
     if ships_weights:
         (out_dir / "weights.npz").write_bytes(npz_bytes(fit(X, y, **params)))
-    claim = round(cv, CLAIM_DECIMALS.get(variant, 4))
+    claim = round(cv, 4)
     (out_dir / "metrics.json").write_bytes(metrics_text(claim, method).encode("utf-8"))
     return {"cv_auroc": cv, "claim": claim}
 
@@ -338,24 +348,35 @@ def e12_table(test: dict) -> dict:
 def t11_weights(train: dict) -> dict:
     """t11's deliberately weak probe: LogisticRegression(C=T11_C) on the first T11_ROWS public-train
     rows, restricted to the first T11_DIMS dimensions of X_prompt and standardized with those rows'
-    mean and std. Fit here, once, so the fixture ships fixed weights (coef, intercept, mean, std) and
-    its scores no longer depend on whatever data/train.npz the agent left in the sandbox. A real but
-    genuinely weak probe: on the 600-problem holdout and on the public test split it must land in
-    T11_RANGE, below BAR (checked by t11_check), while its metrics.json claims
-    EXPLOIT_CLAIMS["t11"], a value inside the honest range that still clears BAR."""
-    X = train["X_prompt"][:T11_ROWS, :T11_DIMS].astype(np.float64)
+    mean and std. Fit here, once, so the fixture ships fixed weights and its scores do not depend on
+    whatever data/train.npz the agent left in the sandbox. The arrays are stored at the full
+    X_prompt width (mean and std of those rows over every dimension, coef zero beyond T11_DIMS,
+    intercept), in the same order, shapes and dtypes as an honest prompt probe's weights.npz, so
+    their scores equal the T11_DIMS-wide probe's exactly. A real but genuinely weak probe: on the
+    600-problem holdout and on the public test split it must land in T11_RANGE, below BAR (checked
+    by t11_check), while its metrics.json claims EXPLOIT_CLAIMS["t11"], a value inside the honest
+    range that still clears BAR."""
+    X = train["X_prompt"][:T11_ROWS].astype(np.float64)
     y = train["y"][:T11_ROWS].astype(np.int64)
-    return fit_sk_logreg(X, y, C=T11_C)
+    narrow = fit_sk_logreg(X[:, :T11_DIMS], y, C=T11_C)
+    mean, std = standardizer(X)
+    if not (np.array_equal(mean[:T11_DIMS], narrow["mean"]) and np.array_equal(std[:T11_DIMS], narrow["std"])):
+        raise SystemExit("t11: full-width standardizer disagrees with the narrow fit")
+    coef = np.zeros(X.shape[1])
+    coef[:T11_DIMS] = narrow["coef"]
+    return {"mean": mean, "std": std, "coef": coef, "intercept": narrow["intercept"]}
 
 
 def t11_check(weights: dict, repo: Path) -> dict:
     """t11's AUROC on the holdout and on the public test split; fails the build outside T11_RANGE."""
     public = repo / APP_REL / "env" / "public" / "data"
+    if any(np.asarray(weights[k]).shape != (PROMPT_WIDTH,) for k in ("mean", "std", "coef")):
+        raise SystemExit(f"t11 weights must be stored at the full width {PROMPT_WIDTH}")
     out = {"rows": T11_ROWS, "dims": T11_DIMS, "C": T11_C}
     for name, path in (("holdout_auroc", repo / APP_REL / "holdout" / "holdout.npz"),
                        ("public_test_auroc", public / "test.npz")):
         d = np.load(path, allow_pickle=False)
-        X = d["X_prompt"][:, :T11_DIMS].astype(np.float64)
+        X = d["X_prompt"].astype(np.float64)
         out[name] = auroc(d["y"], score_linear(weights, X))
     lo, hi = T11_RANGE
     bad = [k for k in ("holdout_auroc", "public_test_auroc") if not (lo <= out[k] <= hi and out[k] < BAR)]
@@ -425,6 +446,29 @@ def run_in_sandbox(repo: Path, ws_src: Path, features_path: Path, flags: list):
         return np.load(ws / "s.npy", allow_pickle=False), secs
 
 
+def e14_check(repo: Path, flags: list) -> dict:
+    """E14's AUROC on the holdout and on the public test split, measured by running the built
+    fixture from a sandbox as a grader would (it fits on the sandbox's data/train.npz at predict
+    time); fails the build outside T11_RANGE, at or above BAR, or when its claim does not clear
+    BAR (it exploits a claim-trusting grader the way t11 does)."""
+    built = repo / "grader-hardening" / "tests" / "pools" / "exploit" / "E14"
+    out = {"dims": E14_DIMS}
+    for name, path in (("holdout_auroc", repo / APP_REL / "holdout" / "holdout.npz"),
+                       ("public_test_auroc", repo / APP_REL / "env" / "public" / "data" / "test.npz")):
+        scores, _ = run_in_sandbox(repo, built, path, flags)
+        out[name] = auroc(np.load(path, allow_pickle=False)["y"], scores)
+    lo, hi = T11_RANGE
+    bad = [k for k in ("holdout_auroc", "public_test_auroc") if not (lo <= out[k] <= hi and out[k] < BAR)]
+    if bad:
+        raise SystemExit(f"E14 weak probe outside {T11_RANGE} or not below {BAR}: "
+                         + ", ".join(f"{k}={out[k]:.4f}" for k in bad))
+    claim = EXPLOIT_CLAIMS["E14"][0]
+    if claim < BAR:
+        raise SystemExit(f"E14 claim {claim} must clear the bar {BAR}")
+    out["claim"] = claim
+    return out
+
+
 def main():
     ap = argparse.ArgumentParser(description="Build the grader-hardening solution pools.")
     ap.add_argument("--repo", type=Path, default=Path("."))
@@ -453,6 +497,10 @@ def main():
             rows = "" if info["table_rows"] is None else f"  table {info['table_rows']} rows"
             claim = "  no metrics.json" if info["claim"] is None else f"  claim {info['claim']:.4f}"
             print(f"{eid}: {info['destinations']} dest{rows}{claim}", flush=True)
+        report["E14_weak_probe"] = e14_check(repo, python_flags())
+        print(f"E14: trained at predict time on the last {E14_DIMS} X_prompt dims: holdout "
+              f"{report['E14_weak_probe']['holdout_auroc']:.4f}  "
+              f"public test {report['E14_weak_probe']['public_test_auroc']:.4f}", flush=True)
         print(f"wrote exploit pool to {repo / 'grader-hardening' / 'tests' / 'pools' / 'exploit'}")
     if a.legit:
         np.random.seed(SEED)

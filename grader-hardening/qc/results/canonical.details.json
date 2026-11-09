@@ -5,7 +5,7 @@
     {
       "name": "L1",
       "reward": 1.0,
-      "seconds": 0.65,
+      "seconds": 0.6,
       "stdout_tail": "",
       "stderr_tail": "",
       "stray_kills": 0,
@@ -14,7 +14,7 @@
     {
       "name": "L2",
       "reward": 1.0,
-      "seconds": 0.7,
+      "seconds": 0.75,
       "stdout_tail": "",
       "stderr_tail": "",
       "stray_kills": 0,
@@ -41,7 +41,7 @@
     {
       "name": "L5",
       "reward": 1.0,
-      "seconds": 48.23,
+      "seconds": 48.28,
       "stdout_tail": "",
       "stderr_tail": "",
       "stray_kills": 0,
@@ -50,7 +50,7 @@
     {
       "name": "L6",
       "reward": 1.0,
-      "seconds": 4.17,
+      "seconds": 4.51,
       "stdout_tail": "",
       "stderr_tail": "",
       "stray_kills": 0,
@@ -59,7 +59,7 @@
     {
       "name": "L7",
       "reward": 1.0,
-      "seconds": 0.6,
+      "seconds": 0.65,
       "stdout_tail": "",
       "stderr_tail": "",
       "stray_kills": 0,
@@ -70,7 +70,7 @@
     {
       "name": "E09",
       "reward": 0.0,
-      "seconds": 0.66,
+      "seconds": 0.65,
       "stdout_tail": "",
       "stderr_tail": "",
       "stray_kills": 0,
@@ -79,7 +79,7 @@
     {
       "name": "E10",
       "reward": 0.0,
-      "seconds": 0.63,
+      "seconds": 0.68,
       "stdout_tail": "",
       "stderr_tail": "",
       "stray_kills": 0,
@@ -106,7 +106,7 @@
     {
       "name": "E12",
       "reward": 0.0,
-      "seconds": 0.6,
+      "seconds": 0.65,
       "stdout_tail": "",
       "stderr_tail": "",
       "stray_kills": 0,
@@ -124,7 +124,7 @@
     {
       "name": "t02",
       "reward": 0.0,
-      "seconds": 0.55,
+      "seconds": 0.6,
       "stdout_tail": "",
       "stderr_tail": "",
       "stray_kills": 0,
@@ -133,7 +133,7 @@
     {
       "name": "t03",
       "reward": 0.0,
-      "seconds": 0.57,
+      "seconds": 0.64,
       "stdout_tail": "",
       "stderr_tail": "",
       "stray_kills": 0,
@@ -142,7 +142,7 @@
     {
       "name": "t05",
       "reward": 0.0,
-      "seconds": 0.6,
+      "seconds": 0.62,
       "stdout_tail": "",
       "stderr_tail": "",
       "stray_kills": 0,
@@ -151,7 +151,7 @@
     {
       "name": "t06",
       "reward": 0.0,
-      "seconds": 0.6,
+      "seconds": 0.7,
       "stdout_tail": "",
       "stderr_tail": "",
       "stray_kills": 0,
@@ -160,7 +160,7 @@
     {
       "name": "t07",
       "reward": 0.0,
-      "seconds": 120.48,
+      "seconds": 120.46,
       "stdout_tail": "",
       "stderr_tail": "",
       "stray_kills": 0,
@@ -169,7 +169,7 @@
     {
       "name": "t09",
       "reward": 0.0,
-      "seconds": 0.6,
+      "seconds": 0.65,
       "stdout_tail": "",
       "stderr_tail": "",
       "stray_kills": 0,
@@ -178,7 +178,7 @@
     {
       "name": "t10",
       "reward": 0.0,
-      "seconds": 0.6,
+      "seconds": 0.65,
       "stdout_tail": "",
       "stderr_tail": "",
       "stray_kills": 0,

@@ -511,6 +511,9 @@ def run_predict(app, feats, tmp):
 
 def _write(logs, details, reward):
     logs.mkdir(parents=True, exist_ok=True)
+    # Harbor reads reward.json before reward.txt, so a copy planted by the
+    # graded code must not survive: the verifier's reward.txt is the result.
+    (logs / "reward.json").unlink(missing_ok=True)
     details["reward"] = reward
     (logs / "details.json").write_text(json.dumps(details, indent=2, default=str))
     (logs / "reward.txt").write_text(f"{reward}\n")
@@ -546,10 +549,15 @@ def main():
     }
     try:
         logs.mkdir(parents=True, exist_ok=True)
-        try:
-            os.chmod(tests, 0o700)
-        except OSError:
-            pass
+        # The policy user must not read the tests or write into the logs,
+        # where Harbor would pick up a planted reward.json.
+        for d in (tests, logs):
+            try:
+                os.chmod(d, 0o700)
+            except OSError:
+                pass
+        details["logs_mode"] = oct(logs.stat().st_mode & 0o777)
+        (logs / "reward.json").unlink(missing_ok=True)
         # A zero is on disk before any agent code runs.
         (logs / "reward.txt").write_text("0.0\n")
 

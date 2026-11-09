@@ -559,8 +559,9 @@ def main():
         errors, report = check_contract(app)
         details["contract_errors"] = errors
         details["gates"]["contract"] = not errors
-        if report is not None and _is_number(report.get("auroc_estimate")):
-            details["estimate"] = float(report["auroc_estimate"])
+        est = None if report is None else report.get("auroc_estimate")
+        if _is_number(est) and math.isfinite(est):  # NaN would not survive JSON cleanly
+            details["estimate"] = float(est)
         if errors:
             details["reason"] = "contract failed: " + "; ".join(errors)
             # No agent code runs on this path; the secret set is consumed all

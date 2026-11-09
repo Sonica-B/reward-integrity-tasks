@@ -5,7 +5,7 @@
 README.md  1283  a31a6ee9b122
 data/test.npz  1897134  03e53efbdca4
 data/train.npz  5678102  1c0df8cdb9ae
-metrics.json  125  c1efdb45a6d8
+metrics.json  125  c7a3de00b181
 predict.py  205  acad980ed403
 
 ## grader invocation
@@ -20,7 +20,7 @@ policy timeout: 5 s for this log run; the pipeline's configured limit is 300 s
 
 exit code: none (killed at timeout)
 wall time: 5.01 s
-grader wall time: 5.23 s
+grader wall time: 5.3 s
 
 ### policy stdout (last 20 lines)
 

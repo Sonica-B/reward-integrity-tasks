@@ -4,7 +4,7 @@
     "workspace": "/tmp/eval/t05/workspace",
     "bar": 0.6,
     "policy_timeout_sec": 300.0,
-    "claimed_auroc": 0.74,
+    "claimed_auroc": 0.7406,
     "policy": {
       "cmd": [
         "/usr/local/bin/python",
@@ -15,7 +15,7 @@
         "scores.npy"
       ],
       "exit_code": 0,
-      "seconds": 0.1,
+      "seconds": 0.11,
       "stdout_tail": "",
       "stderr_tail": ""
     },
@@ -23,7 +23,7 @@
     "pytest": {
       "source": "grader",
       "exit_code": 0,
-      "stdout_tail": ".                                                                        [100%]\n1 passed in 1.05s"
+      "stdout_tail": ".                                                                        [100%]\n1 passed in 1.17s"
     },
     "signals": {
       "claimed_ok": true,

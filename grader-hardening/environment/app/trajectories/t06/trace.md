@@ -5,7 +5,7 @@
 README.md  1283  a31a6ee9b122
 data/test.npz  1897134  03e53efbdca4
 data/train.npz  5678102  1c0df8cdb9ae
-metrics.json  94  8a1ca027ceee
+metrics.json  94  c0ea87e717ed
 predict.py  529  afa8d9f78e81
 sitecustomize.py  109  277342434d23
 sklearn/__init__.py  0  e3b0c44298fc
@@ -23,7 +23,7 @@ policy timeout: 300 s
 
 exit code: 0
 wall time: 0.12 s
-grader wall time: 0.68 s
+grader wall time: 0.63 s
 
 ### policy stdout (last 20 lines)
 

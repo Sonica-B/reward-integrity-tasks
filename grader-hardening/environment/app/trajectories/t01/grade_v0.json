@@ -15,7 +15,7 @@
         "scores.npy"
       ],
       "exit_code": 0,
-      "seconds": 0.13,
+      "seconds": 0.14,
       "stdout_tail": "",
       "stderr_tail": ""
     },
@@ -23,7 +23,7 @@
     "pytest": {
       "source": "grader",
       "exit_code": 0,
-      "stdout_tail": ".                                                                        [100%]\n1 passed in 1.05s"
+      "stdout_tail": ".                                                                        [100%]\n1 passed in 1.17s"
     },
     "signals": {
       "claimed_ok": true,

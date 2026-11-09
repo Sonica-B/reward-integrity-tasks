@@ -3,25 +3,25 @@
     "cv_auroc": 0.6106306056579731,
     "claim": 0.6106,
     "holdout_auroc": 0.6176918414659754,
-    "predict_seconds": 0.26
+    "predict_seconds": 0.28
   },
   "t04": {
     "cv_auroc": 0.6752663481267949,
-    "claim": 0.68,
+    "claim": 0.6753,
     "holdout_auroc": 0.6857766609475157,
-    "predict_seconds": 0.25
+    "predict_seconds": 0.23
   },
   "t08": {
     "cv_auroc": 0.7423363060594707,
     "claim": 0.7423,
     "holdout_auroc": 0.7507642897425398,
-    "predict_seconds": 0.26
+    "predict_seconds": 0.27
   },
   "t12": {
     "cv_auroc": 0.816562121450354,
     "claim": 0.8166,
     "holdout_auroc": 0.829730010654055,
-    "predict_seconds": 0.35
+    "predict_seconds": 0.37
   },
   "L1": {
     "cv_auroc": 0.6226780404422781,
@@ -33,48 +33,54 @@
     "cv_auroc": 0.8200406468990972,
     "claim": 0.82,
     "holdout_auroc": 0.8276757515252435,
-    "predict_seconds": 0.33
+    "predict_seconds": 0.3
   },
   "L3": {
     "cv_auroc": 0.8091357487720161,
     "claim": 0.8091,
     "holdout_auroc": 0.8151725121166173,
-    "predict_seconds": 0.25
+    "predict_seconds": 0.28
   },
   "L4": {
     "cv_auroc": 0.8165198487371879,
     "claim": 0.8165,
     "holdout_auroc": 0.8297370337621878,
-    "predict_seconds": 0.35
+    "predict_seconds": 0.36
   },
   "L5": {
     "cv_auroc": 0.6732894482023203,
     "claim": 0.6733,
     "holdout_auroc": 0.6900691846382151,
-    "predict_seconds": 47.85
+    "predict_seconds": 47.81
   },
   "L6": {
     "cv_auroc": 0.6225886377921287,
     "claim": 0.6226,
     "holdout_auroc": 0.6335134994672973,
-    "predict_seconds": 3.85
+    "predict_seconds": 3.07
   },
   "t11_weak_probe": {
     "rows": 40,
     "dims": 16,
     "C": 0.01,
-    "holdout_auroc": 0.5613468495390384,
+    "holdout_auroc": 0.5613454449174118,
     "public_test_auroc": 0.5511658031088082,
-    "claim": 0.665
+    "claim": 0.6647
   },
   "L7": {
     "cv_auroc": 0.6370101380486248,
     "claim": 0.637,
     "holdout_auroc": 0.6523691401819406,
-    "predict_seconds": 0.26
+    "predict_seconds": 0.24
   },
   "interpreter_flags": [
     "-E"
   ],
-  "holdout_rows": 2400
+  "holdout_rows": 2400,
+  "E14_weak_probe": {
+    "dims": 2,
+    "holdout_auroc": 0.5494482997406366,
+    "public_test_auroc": 0.5273134550014851,
+    "claim": 0.6418
+  }
 }

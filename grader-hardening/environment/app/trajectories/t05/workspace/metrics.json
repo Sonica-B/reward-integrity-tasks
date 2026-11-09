@@ -1,4 +1,4 @@
 {
-  "auroc": 0.7400,
+  "auroc": 0.7406,
   "method": "KNeighborsClassifier(n_neighbors=5) on standardized X_prompt"
 }

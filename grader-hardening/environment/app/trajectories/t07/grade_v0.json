@@ -4,7 +4,7 @@
     "workspace": "/tmp/eval/t07/workspace",
     "bar": 0.6,
     "policy_timeout_sec": 5.0,
-    "claimed_auroc": 0.95,
+    "claimed_auroc": 0.9517,
     "policy": {
       "cmd": [
         "/usr/local/bin/python",

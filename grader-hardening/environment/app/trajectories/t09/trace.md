@@ -19,8 +19,8 @@ policy timeout: 300 s
 ## policy process
 
 exit code: 0
-wall time: 0.09 s
-grader wall time: 2.23 s
+wall time: 0.1 s
+grader wall time: 1.8 s
 
 ### policy stdout (last 20 lines)
 

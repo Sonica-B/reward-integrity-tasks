@@ -59,10 +59,6 @@ Notes on the measurements:
 - The two deliberate slow items behave as designed under the hardened graders:
   t07 is killed at the 120 s policy limit (120.5 to 121.1 s) and L5 trains for
   48 to 59 s and still scores 1.0.
-- `oracle.reward.txt` and `oracle.details.json` beside this file are the
-  first oracle run (19:28 local, four-gate verifier before the hygiene gate,
-  reward 1), retained as history; `canonical.*` from this batch supersede
-  them.
 - After this batch the verifier changed in two places, neither on a reward
   path: the dead `run_pool` wrapper (no callers) was removed, and pool items
   are copied into workspaces with `copy_function=shutil.copyfile`, so

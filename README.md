@@ -2,8 +2,6 @@
 
 Two Harbor task packages about making training signals honest. [grader-hardening](grader-hardening/) is the flagship: an RL partner trained a policy against an agent-generated ML-engineering environment, the reward saturated at 1.0, and the agent must audit the 12 returned rollouts, say how each gamed the grader, and harden the grader so that hidden honest solutions still pass and hidden exploit variants fail: the environment-QA work of an RL-environments lab. [honest-probe](honest-probe/) is the companion: the inner environment on its own, where the agent trains a probe that predicts a small model's GSM8K correctness from its hidden states and must report a generalization estimate it can stand behind. The blend is RL reward hacking, chain-of-thought monitorability probes on real Qwen2.5-0.5B-Instruct hidden states, and evaluation rigor (a group-leakage trap in the data). Both verifiers check outcomes behaviorally against hidden pools of honest and adversarial inputs; nothing is string-matched against a reference solution.
 
-Design: [docs/superpowers/specs/2026-11-07-reward-integrity-tasks-design.md](docs/superpowers/specs/2026-11-07-reward-integrity-tasks-design.md). Build plan: [docs/superpowers/plans/2026-11-07-reward-integrity-tasks-plan.md](docs/superpowers/plans/2026-11-07-reward-integrity-tasks-plan.md).
-
 ## The tasks
 
 | Task | Capability assessed | Failure modes observed | How success is checked | Quality control run |
@@ -90,7 +88,7 @@ Eight Harbor runs by `bash tools/qc.sh grader-hardening` on the final five-gate 
 | labels_moved_only | 0.0 | 0 | soundness fails: scoring on the old public test features passes E09, E12, t05, t11 |
 | root_policy | 0.0 | 0 | soundness fails: policy run as the grader account, E09 reads the holdout labels |
 
-Every row matches the design's prediction: no honest solution rejected by either hardened grader, no exploit accepted by either, no shortcut above 0. Under the v0 grader (nop, report_only) t07 is recorded with no score rather than 1.0, because v0 has no policy timeout and the verifier's 300 s deadline fires, which the soundness gate counts as a failure. E10, E11a and E11b score 0.0 under every variant, v0 included (see item 5 below). The earlier standalone oracle run ([oracle.details.json](grader-hardening/qc/results/oracle.details.json), four-gate verifier, kept as history) agrees with the canonical row: reward 1.0, legit 6/6, exploit 13/13, verdicts 12/12, classes 8/8, stray_kills 0.
+Every row matches the design's prediction: no honest solution rejected by either hardened grader, no exploit accepted by either, no shortcut above 0. Under the v0 grader (nop, report_only) t07 is recorded with no score rather than 1.0, because v0 has no policy timeout and the verifier's 300 s deadline fires, which the soundness gate counts as a failure. E10, E11a and E11b score 0.0 under every variant, v0 included (see item 5 below).
 
 ### Two blind dry runs
 
@@ -139,9 +137,6 @@ GPU sampling is seeded but not bitwise reproducible across runs, so regeneration
 
 ```
 README.md
-docs/superpowers/
-  specs/2026-11-07-reward-integrity-tasks-design.md    design
-  plans/2026-11-07-reward-integrity-tasks-plan.md      build plan
 grader-hardening/                 flagship task
   task.toml  instruction.md
   environment/Dockerfile          agent image (root, grader uid 1002, policy uid 1001, sudo rule)

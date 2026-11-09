@@ -16,7 +16,7 @@ Requirements: Docker, and the agent image built from environment/Dockerfile:
 The end-to-end test runs the real verifier against every hidden pool item. Two
 fixtures deliberately hit the 120 s policy limit, so it takes several minutes
 and is skipped unless GH_E2E=1 is set. Its result is the same evidence the
-Harbor oracle run produces (qc/results/oracle.details.json).
+Harbor oracle run produces (qc/results/canonical.details.json).
 """
 import io
 import json

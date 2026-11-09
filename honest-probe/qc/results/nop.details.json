@@ -1,8 +1,10 @@
 {
   "secret_auroc": null,
   "estimate": null,
-  "bar": 0.62,
-  "tol": 0.05,
+  "interval": null,
+  "bar": 0.55,
+  "width_max": 0.08,
+  "consistency_max": 0.01,
   "n_scored": null,
   "predict_seconds": null,
   "private_consumed": true,
@@ -16,6 +18,16 @@
     "bar": false,
     "estimate": false
   },
+  "estimate_checks": {
+    "contains": false,
+    "width_ok": false,
+    "consistency_ok": false
+  },
+  "interval_width": null,
+  "fold_mean": null,
+  "fold_gap": null,
+  "n_folds": null,
+  "split_key": null,
   "stdout_tail": "",
   "stderr_tail": "",
   "stray_kills": 0,

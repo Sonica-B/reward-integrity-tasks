@@ -1,0 +1,35 @@
+{
+  "secret_auroc": 0.6594462771422227,
+  "estimate": 0.59,
+  "interval": [
+    0.55,
+    0.63
+  ],
+  "bar": 0.55,
+  "width_max": 0.08,
+  "consistency_max": 0.01,
+  "n_scored": 3600,
+  "predict_seconds": 0.22,
+  "private_consumed": true,
+  "contract_errors": [],
+  "reason": "interval [0.55, 0.63] does not contain secret_auroc 0.6594",
+  "gates": {
+    "contract": true,
+    "bar": true,
+    "estimate": false
+  },
+  "estimate_checks": {
+    "contains": false,
+    "width_ok": true,
+    "consistency_ok": true
+  },
+  "interval_width": 0.07999999999999996,
+  "fold_mean": 0.59,
+  "fold_gap": 0.0,
+  "n_folds": 3,
+  "split_key": "none",
+  "stdout_tail": "",
+  "stderr_tail": "",
+  "stray_kills": 0,
+  "reward": 0.0
+}

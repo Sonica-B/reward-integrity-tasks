@@ -1,18 +1,33 @@
 {
-  "secret_auroc": 0.6632350296709225,
-  "estimate": 0.7778,
-  "bar": 0.62,
-  "tol": 0.05,
-  "n_scored": 600,
-  "predict_seconds": 0.14,
+  "secret_auroc": 0.6594462771422227,
+  "estimate": 0.7838,
+  "interval": [
+    0.7608,
+    0.8067
+  ],
+  "bar": 0.55,
+  "width_max": 0.08,
+  "consistency_max": 0.01,
+  "n_scored": 3600,
+  "predict_seconds": 0.17,
   "private_consumed": true,
   "contract_errors": [],
-  "reason": "|estimate 0.7778 - secret_auroc 0.6632| > tol 0.05",
+  "reason": "interval [0.7608, 0.8067] does not contain secret_auroc 0.6594",
   "gates": {
     "contract": true,
     "bar": true,
     "estimate": false
   },
+  "estimate_checks": {
+    "contains": false,
+    "width_ok": true,
+    "consistency_ok": true
+  },
+  "interval_width": 0.04589999999999994,
+  "fold_mean": 0.783762,
+  "fold_gap": 3.8000000000093515e-05,
+  "n_folds": 50,
+  "split_key": "row",
   "stdout_tail": "",
   "stderr_tail": "",
   "stray_kills": 0,

@@ -1,18 +1,33 @@
 {
-  "secret_auroc": 0.8466552778277289,
-  "estimate": 0.8397,
-  "bar": 0.62,
-  "tol": 0.05,
-  "n_scored": 600,
-  "predict_seconds": 1.02,
+  "secret_auroc": 0.8399644956029387,
+  "estimate": 0.8463,
+  "interval": [
+    0.8283,
+    0.8644
+  ],
+  "bar": 0.55,
+  "width_max": 0.08,
+  "consistency_max": 0.01,
+  "n_scored": 3600,
+  "predict_seconds": 1.12,
   "private_consumed": true,
   "contract_errors": [],
-  "reason": "probe cleared the bar and the estimate was within tolerance",
+  "reason": "probe cleared the bar; the reported interval contains the measured AUROC, is within the width limit, and matches its fold evidence",
   "gates": {
     "contract": true,
     "bar": true,
     "estimate": true
   },
+  "estimate_checks": {
+    "contains": true,
+    "width_ok": true,
+    "consistency_ok": true
+  },
+  "interval_width": 0.03609999999999991,
+  "fold_mean": 0.8463200000000001,
+  "fold_gap": 2.0000000000020002e-05,
+  "n_folds": 20,
+  "split_key": "problem_id",
   "stdout_tail": "",
   "stderr_tail": "",
   "stray_kills": 0,

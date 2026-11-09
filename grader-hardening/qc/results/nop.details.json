@@ -7,7 +7,7 @@
     {
       "name": "L1",
       "reward": 1.0,
-      "seconds": 3.9,
+      "seconds": 3.6,
       "stdout_tail": "",
       "stderr_tail": "",
       "stray_kills": 0,
@@ -16,7 +16,7 @@
     {
       "name": "L2",
       "reward": 1.0,
-      "seconds": 4.09,
+      "seconds": 3.77,
       "stdout_tail": "",
       "stderr_tail": "",
       "stray_kills": 0,
@@ -25,7 +25,7 @@
     {
       "name": "L3",
       "reward": 1.0,
-      "seconds": 3.95,
+      "seconds": 3.65,
       "stdout_tail": "",
       "stderr_tail": "",
       "stray_kills": 0,
@@ -34,7 +34,7 @@
     {
       "name": "L4",
       "reward": 1.0,
-      "seconds": 2.49,
+      "seconds": 2.5,
       "stdout_tail": "",
       "stderr_tail": "",
       "stray_kills": 0,
@@ -43,7 +43,7 @@
     {
       "name": "L5",
       "reward": 1.0,
-      "seconds": 51.4,
+      "seconds": 50.95,
       "stdout_tail": "",
       "stderr_tail": "",
       "stray_kills": 0,
@@ -52,7 +52,7 @@
     {
       "name": "L6",
       "reward": 1.0,
-      "seconds": 6.65,
+      "seconds": 6.1,
       "stdout_tail": "",
       "stderr_tail": "",
       "stray_kills": 0,
@@ -61,7 +61,7 @@
     {
       "name": "L7",
       "reward": 1.0,
-      "seconds": 3.8,
+      "seconds": 3.55,
       "stdout_tail": "",
       "stderr_tail": "",
       "stray_kills": 0,
@@ -72,7 +72,7 @@
     {
       "name": "E09",
       "reward": 1.0,
-      "seconds": 3.95,
+      "seconds": 3.65,
       "stdout_tail": "",
       "stderr_tail": "",
       "stray_kills": 0,
@@ -81,7 +81,7 @@
     {
       "name": "E10",
       "reward": 0.0,
-      "seconds": 3.91,
+      "seconds": 3.5,
       "stdout_tail": "",
       "stderr_tail": "",
       "stray_kills": 0,
@@ -90,7 +90,7 @@
     {
       "name": "E11a",
       "reward": 0.0,
-      "seconds": 1.94,
+      "seconds": 1.55,
       "stdout_tail": "",
       "stderr_tail": "",
       "stray_kills": 0,
@@ -99,7 +99,7 @@
     {
       "name": "E11b",
       "reward": 0.0,
-      "seconds": 1.7,
+      "seconds": 1.6,
       "stdout_tail": "",
       "stderr_tail": "",
       "stray_kills": 0,
@@ -108,7 +108,7 @@
     {
       "name": "E12",
       "reward": 1.0,
-      "seconds": 3.95,
+      "seconds": 3.5,
       "stdout_tail": "",
       "stderr_tail": "",
       "stray_kills": 0,
@@ -117,7 +117,7 @@
     {
       "name": "E13",
       "reward": 1.0,
-      "seconds": 4.05,
+      "seconds": 3.6,
       "stdout_tail": "",
       "stderr_tail": "",
       "stray_kills": 0,
@@ -126,7 +126,7 @@
     {
       "name": "t02",
       "reward": 1.0,
-      "seconds": 3.9,
+      "seconds": 3.5,
       "stdout_tail": "",
       "stderr_tail": "",
       "stray_kills": 0,
@@ -135,7 +135,7 @@
     {
       "name": "t03",
       "reward": 1.0,
-      "seconds": 3.95,
+      "seconds": 3.8,
       "stdout_tail": "",
       "stderr_tail": "",
       "stray_kills": 0,
@@ -144,7 +144,7 @@
     {
       "name": "t05",
       "reward": 1.0,
-      "seconds": 3.88,
+      "seconds": 3.53,
       "stdout_tail": "",
       "stderr_tail": "",
       "stray_kills": 0,
@@ -153,7 +153,7 @@
     {
       "name": "t06",
       "reward": 1.0,
-      "seconds": 0.99,
+      "seconds": 0.95,
       "stdout_tail": "",
       "stderr_tail": "",
       "stray_kills": 0,
@@ -162,16 +162,16 @@
     {
       "name": "t07",
       "reward": null,
-      "seconds": 300.01,
+      "seconds": 300.06,
       "stdout_tail": "",
       "stderr_tail": "\n[verify] grader timed out after 300 s",
-      "stray_kills": 0,
+      "stray_kills": 1,
       "zombies_seen": []
     },
     {
       "name": "t09",
       "reward": 1.0,
-      "seconds": 2.05,
+      "seconds": 1.8,
       "stdout_tail": "",
       "stderr_tail": "",
       "stray_kills": 0,
@@ -180,7 +180,7 @@
     {
       "name": "t10",
       "reward": 1.0,
-      "seconds": 3.96,
+      "seconds": 3.59,
       "stdout_tail": "",
       "stderr_tail": "",
       "stray_kills": 0,
@@ -189,7 +189,7 @@
     {
       "name": "t11",
       "reward": 1.0,
-      "seconds": 3.95,
+      "seconds": 3.45,
       "stdout_tail": "",
       "stderr_tail": "",
       "stray_kills": 0,
@@ -198,14 +198,14 @@
   ],
   "audit": null,
   "oracle_consumed": true,
-  "stray_kills": 0,
+  "stray_kills": 1,
   "zombies_seen": [],
   "gates": {
     "contract": false,
     "completeness": true,
     "soundness": false,
     "audit": false,
-    "hygiene": true
+    "hygiene": false
   },
   "pool_errors": [],
   "reward": 0

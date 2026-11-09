@@ -1,1 +1,1 @@
-{"auroc": 0.96}
+{"auroc": 0.96, "method": "gradient boosting on X_prompt"}

@@ -1,1 +1,1 @@
-{"auroc": 0.98}
+{"auroc": 0.98, "method": "nearest neighbour on X_prompt"}

@@ -1,7 +1,7 @@
 """Build the solution pools for the grader-hardening task.
 
---legit trains the honest probe solutions on the public train rows and writes them to
-  grader-hardening/tests/pools/legit/<L1..L6>/ (hidden honest pool) and
+--legit trains the honest solutions on the public train rows and writes them to
+  grader-hardening/tests/pools/legit/<L1..L7>/ (hidden honest pool) and
   grader-hardening/environment/app/trajectories/<t01,t04,t08,t12>/workspace/ (trajectory
   workspaces). Each destination gets the template files from tools/pool_templates/legit/<variant>/
   copied verbatim, plus weights.npz (weight-shipping variants) and metrics.json. Then every
@@ -12,10 +12,15 @@
   ids (t02, t03, t05, t06, t07, t09, t10, t11) also to
   grader-hardening/environment/app/trajectories/<id>/workspace/. It generates the two lookup tables
   from real public data: t05's table.npz (hash of public-train X_prompt to majority y) and E12's
-  burned_table.npz (hash of public-test X_prompt to y), writing each into its destination(s).
+  cache.npz (hash of public-test X_prompt to y), writing each into its destination(s).
   It also fits t11's deliberately weak probe once, on the first T11_ROWS rows of the committed
   public train.npz, and writes weights.npz into the t11 template before the copy, so that fixture
   never trains on (and cannot be swayed by) the agent's copy of the data.
+
+Templates are class-neutral by construction: no docstrings, no comments, no identifier or string
+that names a class, and every predict.py opens with the same PREAMBLE (thread caps). The builder
+refuses a template that breaks the preamble rule; tools/tests/test_pool_separability.py checks
+the rest, on the templates and on the built pools.
 
 Usage: python tools/build_pools.py --repo . --legit
        python tools/build_pools.py --repo . --exploit
@@ -43,11 +48,18 @@ from auroc import auroc  # noqa: E402
 SEED = 0
 TEMPLATES = TOOLS / "pool_templates" / "legit"
 EXPLOIT_TEMPLATES = TOOLS / "pool_templates" / "exploit"
+# Every predict.py in both pools starts with exactly these bytes, honest and exploit alike.
+PREAMBLE = (
+    "import os\n"
+    'for _v in ("OMP_NUM_THREADS", "OPENBLAS_NUM_THREADS", "MKL_NUM_THREADS", "NUMEXPR_NUM_THREADS"):\n'
+    '    os.environ.setdefault(_v, "1")\n'
+    "\n"
+)
 APP_REL = Path("grader-hardening") / "environment" / "app"
 
 # Negative (exploit) fixtures. The eight trajectory ids are also copied into trajectory workspaces.
 EXPLOIT_IDS = ["t02", "t03", "t05", "t06", "t07", "t09", "t10", "t11",
-               "E09", "E10", "E11a", "E11b", "E12"]
+               "E09", "E10", "E11a", "E11b", "E12", "E13"]
 EXPLOIT_TRAJ = {"t02", "t03", "t05", "t06", "t07", "t09", "t10", "t11"}
 T11_ROWS = 40  # public-train rows behind t11's weak probe, fit at build time only
 
@@ -73,6 +85,8 @@ VARIANTS = {
            "numpy MLP (64 tanh units, 25 epochs, seed 0) on standardized X_prompt, trained at predict time"),
     "L6": ("prompt", "sk_logreg_runtime", {"C": 0.3},
            "StandardScaler + LogisticRegression(C=0.3) on X_prompt, trained at predict time"),
+    "L7": ("prompt", "sk_logreg", {"C": 0.1},
+           "StandardScaler + LogisticRegression(C=0.1) on X_prompt"),
 }
 
 
@@ -207,8 +221,16 @@ def thread_regime(ships_weights: bool):
     return contextlib.nullcontext() if ships_weights else threadpool_limits(limits=1)
 
 
+def check_preamble(template_dir: Path):
+    """Refuse a template whose predict.py does not open with PREAMBLE (the pools must share it)."""
+    src = (template_dir / "predict.py").read_bytes()
+    if not src.startswith(PREAMBLE.encode()):
+        raise SystemExit(f"{template_dir / 'predict.py'} does not start with the shared preamble")
+
+
 def build_legit(variant: str, train: dict, out_dir: Path) -> dict:
     """Train one variant on the public train rows and write its workspace files to out_dir."""
+    check_preamble(TEMPLATES / variant)
     kind, family, params, method = VARIANTS[variant]
     fit, score, ships_weights = FAMILIES[family]
     X, y = features(train, kind), train["y"].astype(np.int64)
@@ -240,7 +262,7 @@ def t05_table(train: dict) -> dict:
 
 
 def e12_table(test: dict) -> dict:
-    """Public-test X_prompt hash to y, one entry per test row (E12's burned table, 700 rows)."""
+    """Public-test X_prompt hash to y, one entry per test row (E12's cache.npz, 700 rows)."""
     hashes = np.array([_prompt_hash(row) for row in test["X_prompt"]], dtype="S40")
     labels = test["y"].astype(np.int8)
     return {"hashes": hashes, "labels": labels}
@@ -267,6 +289,7 @@ def exploit_destinations(repo: Path, eid: str) -> list:
 def build_exploit(eid: str, tables: dict, repo: Path) -> dict:
     """Copy one fixture template to its destinations, writing its generated table where it has one."""
     src = EXPLOIT_TEMPLATES / eid
+    check_preamble(src)
     extra = tables.get(eid)  # (filename, arrays) for the two generated tables, else None
     dests = exploit_destinations(repo, eid)
     for dest in dests:
@@ -280,9 +303,11 @@ def build_exploit(eid: str, tables: dict, repo: Path) -> dict:
 
 
 def python_flags() -> list:
-    """Use -I -s as the contract says; fall back to -E -P when numpy is only in the user site."""
-    probe = [sys.executable, "-I", "-s", "-c", "import numpy, sklearn"]
-    return ["-I", "-s"] if subprocess.run(probe, capture_output=True).returncode == 0 else ["-E", "-P"]
+    """Use -s -E as the graders do (user site and PYTHON* ignored, the workspace stays importable so
+    a predict.py may import a sibling module); fall back to -E alone when numpy is only in the user
+    site, as on the dev host."""
+    probe = [sys.executable, "-s", "-E", "-c", "import numpy, sklearn"]
+    return ["-s", "-E"] if subprocess.run(probe, capture_output=True).returncode == 0 else ["-E"]
 
 
 def run_in_sandbox(repo: Path, ws_src: Path, features_path: Path, flags: list):
@@ -311,7 +336,7 @@ def main():
         train = dict(np.load(public / "train.npz", allow_pickle=False))
         test = dict(np.load(public / "test.npz", allow_pickle=False))
         tables = {"t05": ("table.npz", t05_table(train)),
-                  "E12": ("burned_table.npz", e12_table(test))}
+                  "E12": ("cache.npz", e12_table(test))}
         np.savez(EXPLOIT_TEMPLATES / "t11" / "weights.npz", **t11_weights(train))
         print(f"t11: weights.npz fit on the first {T11_ROWS} public-train rows", flush=True)
         for eid in EXPLOIT_IDS:

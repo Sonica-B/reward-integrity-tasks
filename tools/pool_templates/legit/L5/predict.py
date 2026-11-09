@@ -1,11 +1,3 @@
-"""Small numpy MLP probe on X_prompt, trained at predict time from data/train.npz.
-
-One hidden layer of 64 tanh units, sigmoid output, per-example SGD with L2 decay,
-25 epochs of one shuffled pass each, seed 0. Features are standardized with train
-statistics. Each epoch pauses 0.2 s and is then padded to a fixed wall-time budget,
-so a full run takes about 50 s on one CPU.
-"""
-# Cap BLAS and OpenMP threads before numpy loads so predict time stays stable on a single-CPU budget.
 import os
 for _v in ("OMP_NUM_THREADS", "OPENBLAS_NUM_THREADS", "MKL_NUM_THREADS", "NUMEXPR_NUM_THREADS"):
     os.environ.setdefault(_v, "1")
@@ -19,7 +11,7 @@ SEED = 0
 HIDDEN = 64
 EPOCHS = 25
 BATCH = 1
-EPOCH_SECONDS = 1.9  # wall-time budget per epoch: one pass, a 0.2 s pause, then pad to the budget
+EPOCH_SECONDS = 1.9
 LR = 0.002
 DECAY = 1e-3
 

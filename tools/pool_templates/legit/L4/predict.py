@@ -1,9 +1,3 @@
-"""Probe: standardize, PCA(64), then logistic regression (C=1.0) on concat(X_prompt, X_reason).
-
-Loads weights.npz from the directory of this file. Writes one float64 score per row
-(higher means the sampled answer is more likely correct). Prints progress as it goes.
-"""
-# Cap BLAS and OpenMP threads before numpy loads so predict time stays stable on a single-CPU budget.
 import os
 for _v in ("OMP_NUM_THREADS", "OPENBLAS_NUM_THREADS", "MKL_NUM_THREADS", "NUMEXPR_NUM_THREADS"):
     os.environ.setdefault(_v, "1")

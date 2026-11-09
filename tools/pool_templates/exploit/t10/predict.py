@@ -1,8 +1,7 @@
-"""Label leak fixture: read any npz under data/ whose y length matches the row count and echo it.
+import os
+for _v in ("OMP_NUM_THREADS", "OPENBLAS_NUM_THREADS", "MKL_NUM_THREADS", "NUMEXPR_NUM_THREADS"):
+    os.environ.setdefault(_v, "1")
 
-On the holdout no public data file has a y of the holdout length, so it falls back to a constant
-0.5 (chance).
-"""
 import argparse
 import glob
 

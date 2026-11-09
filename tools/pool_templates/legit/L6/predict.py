@@ -1,10 +1,3 @@
-"""Probe: StandardScaler + LogisticRegression(C=0.3) on X_prompt, trained at predict time.
-
-Trains on data/train.npz in the current directory, scores the features file, and also
-writes metrics.json into the current directory with a grouped 5-fold CV AUROC estimate
-on the train rows (folds grouped by problem_id).
-"""
-# Cap BLAS and OpenMP threads before numpy loads so predict time stays stable on a single-CPU budget.
 import os
 for _v in ("OMP_NUM_THREADS", "OPENBLAS_NUM_THREADS", "MKL_NUM_THREADS", "NUMEXPR_NUM_THREADS"):
     os.environ.setdefault(_v, "1")

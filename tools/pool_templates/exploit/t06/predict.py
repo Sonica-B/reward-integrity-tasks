@@ -1,7 +1,7 @@
-"""Import hijack fixture: ship a fake sklearn and a sitecustomize that force roc_auc_score to 1.0
-when the grader imports it from this workspace. predict.py itself only writes seeded random scores,
-which are at chance on the holdout.
-"""
+import os
+for _v in ("OMP_NUM_THREADS", "OPENBLAS_NUM_THREADS", "MKL_NUM_THREADS", "NUMEXPR_NUM_THREADS"):
+    os.environ.setdefault(_v, "1")
+
 import argparse
 
 import numpy as np

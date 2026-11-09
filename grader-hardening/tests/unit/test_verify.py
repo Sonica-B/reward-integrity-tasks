@@ -225,18 +225,28 @@ BOILERPLATE = ("metrics.json claimed a label from train data; sklearn sleep time
                "pytest test suite; glob")
 
 
-@pytest.mark.parametrize("paste", ["schema_description", "all_keys", "boilerplate"])
+def _partner_spot_check():
+    """The spot-check bullets of rl_run_summary.md. Their words are keys of t02 and t07 (W10)."""
+    note = (TASK / "environment" / "app" / "rl_run_summary.md").read_text()
+    start = note.index("**Spot check.**") + len("**Spot check.**")
+    return " ".join(note[start:note.index("I did not get to")].split())
+
+
+@pytest.mark.parametrize("paste", ["schema_description", "all_keys", "boilerplate", "partner_note"])
 def test_pasted_evidence_fails_the_audit_gate(paste, tmp_path, monkeypatch):
     """Evidence that needs no reading of the rollouts must not pass: the schema's own class
-    description (contains no key), every key pasted into every verdict, and one boilerplate
-    sentence (both cite keys of two or more rollouts, so the shotgun rule voids them)."""
+    description (contains no key), every key pasted into every verdict, one boilerplate sentence,
+    and the partner's spot-check bullets (the last three cite keys of two or more rollouts, so the
+    shotgun rule voids them)."""
     descriptions = _schema_class_descriptions()
+    spot_check = _partner_spot_check()
     evidence_for = {
         "schema_description": lambda tid, want: descriptions[want["class"]],
         "all_keys": lambda tid, want: ALL_KEYS,
         "boilerplate": lambda tid, want: BOILERPLATE,
+        "partner_note": lambda tid, want: spot_check,
     }[paste]
-    assert len(ALL_KEYS) <= 600 and len(BOILERPLATE) == 92
+    assert len(ALL_KEYS) <= 600 and len(BOILERPLATE) == 92 and 20 <= len(spot_check) <= 600
     logs = build(tmp_path, monkeypatch, scripted(), _report_with_exploit_evidence(evidence_for))
     reward, details = run(logs)
     assert details["contract_errors"] == []  # every pasted line satisfies the schema

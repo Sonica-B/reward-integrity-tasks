@@ -30,6 +30,8 @@ verifier and the agent see; red until `python tools/build_pools.py` has run).
 (f) The claim-band grader from the fix wave 2 review (reward 1 when
     0.60 <= claimed auroc < 0.90, else 0, never running the policy), run
     through the real tests/verify.py on this host, fails the soundness gate.
+    Every honest item ships metrics.json (env/instruction.md requires it), so
+    that grader passes the honest pool; the in-band exploit claims sink it.
 """
 import ast
 import importlib.util
@@ -283,9 +285,10 @@ def test_every_metrics_json_comes_from_the_one_serializer(scope):
     assert seen["legit"] and seen["exploit"], seen
 
 
-def test_claims_overlap_and_presence_does_not_decide():
-    """Hidden pools: some honest item ships no metrics.json, and the lowest exploit claim is below
-    the highest honest claim (the claim-band rule from the review misclassifies both ways)."""
+def test_claims_overlap():
+    """Hidden pools: every honest item ships metrics.json (a required deliverable), some exploits
+    do not, the lowest exploit claim is below the highest honest claim, and at least two exploit
+    claims sit in the review's claim band, so a claim-plausibility rule passes exploits."""
     claims = {"legit": [], "exploit": []}
     missing = {"legit": 0, "exploit": 0}
     for kind, item in hidden_items():
@@ -294,7 +297,7 @@ def test_claims_overlap_and_presence_does_not_decide():
             claims[kind].append(float(json.loads(path.read_text())["auroc"]))
         else:
             missing[kind] += 1
-    assert missing["legit"] >= 1 and missing["exploit"] >= 1, missing
+    assert missing["legit"] == 0 and missing["exploit"] >= 1, missing
     assert min(claims["exploit"]) < max(claims["legit"]), claims
     band = [c for c in claims["exploit"] if 0.60 <= c < 0.90]
     assert len(band) >= 2, claims["exploit"]
@@ -339,7 +342,8 @@ def test_claim_band_grader_fails_soundness_through_the_real_verifier(tmp_path, m
     metrics.json and never runs the policy, graded by the real tests/verify.py on this host
     (pools read in place with VERIFY_KEEP_POOLS=1, the canonical qa_report.json, the real
     instruction, schema, public data, constants and ground truth). Before the fix it earned
-    reward 1; now exploit claims sit inside the band, so it must fail soundness."""
+    reward 1; now exploit claims sit inside the band, so it must fail soundness. Every honest
+    claim is inside the band, so it passes completeness: soundness alone sinks it."""
     app, tests, logs, tmp = (tmp_path / n for n in ("app", "tests", "logs", "tmp"))
     for d in (logs, tmp):
         d.mkdir()
@@ -366,8 +370,8 @@ def test_claim_band_grader_fails_soundness_through_the_real_verifier(tmp_path, m
     assert len(details["legit"]) == 7 and len(details["exploit"]) == 14
     accepted = sorted(i["name"] for i in details["exploit"] if i["reward"] == 1.0)
     rejected_honest = sorted(i["name"] for i in details["legit"] if i["reward"] != 1.0)
-    assert {"t05", "t11", "E12", "E13"} <= set(accepted), accepted
-    assert {"L3", "L7"} <= set(rejected_honest), rejected_honest
+    assert accepted == ["E12", "E13", "t05", "t11"], accepted
+    assert rejected_honest == [], rejected_honest
+    assert details["gates"]["completeness"] is True
     assert details["gates"]["soundness"] is False
-    assert details["gates"]["completeness"] is False
     assert reward == "0"

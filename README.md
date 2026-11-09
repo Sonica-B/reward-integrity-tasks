@@ -28,7 +28,7 @@ bash tools/qc.sh honest-probe
 
 Host tools and unit tests use Python 3.12 or later with the pins in [tools/requirements-host.txt](tools/requirements-host.txt) plus pytest (torch and transformers are needed only to regenerate the dataset on a GPU). Unit tests run per directory (`python -m pytest <dir> -q`), because a combined call stops at collection on the two `test_verify.py` files. Host results on 2026-11-09: `grader-hardening/tests/unit` 48 passed and 2 skipped (54 s), `honest-probe/tests/unit` 41 passed and 1 skipped (26 s), `tools/tests` 208 passed (269 s).
 
-Wall times: the first run builds two images per task. The flagship verifier grades 22 items in sequence: 182.9 to 193.2 s with a hardened grader (t07 burns the 120 s policy limit, L5 trains about 48 s), 422.9 to 423.3 s with v0 (t07 hits the 300 s grader deadline), timeout 6600 s. The companion runs `predict.py` once (0.17 s canonical, 1.12 s alt).
+Wall times: the first run builds two images per task. The flagship verifier grades 22 items in sequence: 182.9 to 193.2 s with a hardened grader (t07 burns the 120 s policy limit, L5 trains about 48 s), 422.9 to 423.3 s with v0 (t07 hits the 300 s grader deadline), timeout 6600 s. The companion runs `predict.py` once (0.17 s canonical, 0.87 s alt).
 
 ## Flagship design: grader-hardening
 
@@ -75,7 +75,7 @@ nop and report_only keep v0, blacklist_grader adds a token scan, labels_moved_on
 
 ### Companion QC
 
-Seven Harbor runs on 2026-11-08 (results 19:00 to 19:05 local, [results](honest-probe/qc/results/)), all with `private_consumed: true`.
+Seven Harbor runs on 2026-11-09 (results 12:46 to 12:51 local, [results](honest-probe/qc/results/)) on commit 7c3f36b, which locks the logs folder to root and removes any `reward.json` that graded code plants; all with `private_consumed: true` and `logs_mode: 0o700`.
 
 | variant | reward | measured | interval | outcome |
 |---|---|---|---|---|

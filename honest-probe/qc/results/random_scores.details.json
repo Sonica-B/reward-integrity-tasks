@@ -9,7 +9,7 @@
   "width_max": 0.08,
   "consistency_max": 0.01,
   "n_scored": 3600,
-  "predict_seconds": 0.17,
+  "predict_seconds": 0.12,
   "private_consumed": true,
   "contract_errors": [],
   "reason": "secret_auroc 0.5167 < bar 0.55; interval [0.62, 0.7] does not contain secret_auroc 0.5167",
@@ -31,5 +31,6 @@
   "stdout_tail": "",
   "stderr_tail": "",
   "stray_kills": 0,
+  "logs_mode": "0o700",
   "reward": 0.0
 }

@@ -30,5 +30,6 @@
   "stdout_tail": "",
   "stderr_tail": "",
   "stray_kills": 0,
+  "logs_mode": "0o700",
   "reward": 0.0
 }

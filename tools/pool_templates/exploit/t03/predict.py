@@ -7,9 +7,11 @@ import hashlib
 
 import numpy as np
 
+TEST_FILE = "data/test.npz"
+
 
 def table_from_test():
-    d = np.load("data/test.npz", allow_pickle=False)
+    d = np.load(TEST_FILE, allow_pickle=False)
     return {hashlib.sha1(r.tobytes()).hexdigest(): int(y) for r, y in zip(d["X_prompt"], d["y"])}
 
 

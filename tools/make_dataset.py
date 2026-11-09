@@ -1,10 +1,18 @@
 """Generate the correctness-probe dataset: sampled GSM8K chain-of-thought answers
 from a small instruct model plus its hidden states at two read-out positions.
 
-Outputs (in --out):
+Outputs (in --out when it is a directory):
   activations_full.npz    X_prompt, X_reason (float16), y, problem_id, sample_idx, row_id
   generations.jsonl.gz    one record per row
   dataset_stats.json      accuracy, n_rows, d, layer, model
+
+When --out ends in .npz it names the activations file and the other two take its suffix:
+  --out tools/output/activations_extra.npz writes generations_extra.jsonl.gz and
+  dataset_stats_extra.json beside it.
+
+Extending a run with new problems: --exclude-generations skips sampled problems whose question
+text appears in an earlier generations.jsonl.gz (before --limit); --problem-id-offset and
+--row-id-offset continue the ids from the earlier run.
 """
 import argparse
 import gzip
@@ -33,19 +41,60 @@ def clean_number(text):
     return text.replace(",", "").replace("$", "")
 
 
-def load_problems(n_problems, seed, limit=None):
-    """Sample n_problems GSM8K train problems; problem_id is the position in the sampled order."""
-    ds = load_dataset("openai/gsm8k", "main", split="train")
+def load_excluded_text(path):
+    """The question (or, failing that, the prompt) of every record in a generations.jsonl.gz, joined
+    into one string, so that `question in text` tells whether the question text appears in that file."""
+    with gzip.open(path, "rt", encoding="utf-8") as f:
+        records = [json.loads(line) for line in f if line.strip()]
+    return "\n".join(r.get("question") or r["prompt"] for r in records)
+
+
+def select_problems(ds, n_problems, seed, limit=None, exclude_text="", problem_id_offset=0):
+    """Sample n_problems rows of ds (indexable, rows with "question" and "answer") without
+    replacement, drop the ones whose question text appears in exclude_text, then keep the first
+    `limit`. problem_id is problem_id_offset plus the position in the surviving sampled order."""
     rng = np.random.default_rng(seed)
     indices = rng.choice(len(ds), size=n_problems, replace=False)
+    rows = [ds[int(idx)] for idx in indices]
+    rows = [row for row in rows if row["question"] not in exclude_text]
     if limit is not None:
-        indices = indices[:limit]
-    problems = []
-    for pid, idx in enumerate(indices):
-        row = ds[int(idx)]
-        gold = clean_number(row["answer"].split(MARKER)[-1].strip())
-        problems.append({"problem_id": pid, "question": row["question"], "gold_answer": gold})
-    return problems
+        rows = rows[:limit]
+    return [
+        {
+            "problem_id": problem_id_offset + pid,
+            "question": row["question"],
+            "gold_answer": clean_number(row["answer"].split(MARKER)[-1].strip()),
+        }
+        for pid, row in enumerate(rows)
+    ]
+
+
+def load_problems(n_problems, seed, limit=None, exclude_text="", problem_id_offset=0):
+    """Sample n_problems GSM8K train problems; see select_problems."""
+    ds = load_dataset("openai/gsm8k", "main", split="train")
+    return select_problems(ds, n_problems, seed, limit, exclude_text, problem_id_offset)
+
+
+def output_paths(out):
+    """(activations, generations, stats) paths for --out. A directory keeps the original names; a
+    path ending in .npz names the activations file and the others take its suffix after
+    "activations" (activations_extra.npz -> generations_extra.jsonl.gz, dataset_stats_extra.json)."""
+    if out.suffix == ".npz":
+        tag = out.stem.removeprefix("activations") if out.stem.startswith("activations") else "_" + out.stem
+        return out, out.with_name(f"generations{tag}.jsonl.gz"), out.with_name(f"dataset_stats{tag}.json")
+    return out / "activations_full.npz", out / "generations.jsonl.gz", out / "dataset_stats.json"
+
+
+def pack_arrays(x_prompt, x_reason, records):
+    """The arrays saved to the activations file; ids come from the records."""
+    return {
+        "X_prompt": np.stack(x_prompt).astype(np.float16),
+        "X_reason": np.stack(x_reason).astype(np.float16),
+        "y": np.array([r["correct"] for r in records], dtype=np.int8),
+        "problem_id": np.array([r["problem_id"] for r in records], dtype=np.int32),
+        "sample_idx": np.array([r["sample_idx"] for r in records], dtype=np.int8),
+        "row_id": np.array([r["row_id"] for r in records], dtype=np.int32),
+    }
 
 
 def last_boxed_content(response):
@@ -152,11 +201,17 @@ def extract_hidden_states(model, tokenizer, prompt_ids, gen_ids, layer):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    parser.add_argument("--out", type=Path, required=True)
+    parser.add_argument("--out", type=Path, required=True,
+                        help="output directory, or the activations .npz file (see module docstring)")
     parser.add_argument("--n-problems", type=int, default=1000)
     parser.add_argument("--samples", type=int, default=4)
     parser.add_argument("--seed", type=int, default=20261107)
-    parser.add_argument("--limit", type=int, default=None, help="process only the first N sampled problems")
+    parser.add_argument("--limit", type=int, default=None,
+                        help="process only the first N sampled problems (after --exclude-generations)")
+    parser.add_argument("--exclude-generations", type=Path, default=None,
+                        help="skip sampled problems whose question text appears in this generations.jsonl.gz")
+    parser.add_argument("--problem-id-offset", type=int, default=0, help="problem_id continues from this value")
+    parser.add_argument("--row-id-offset", type=int, default=0, help="row_id continues from this value")
     parser.add_argument("--model", default="Qwen/Qwen2.5-0.5B-Instruct")
     args = parser.parse_args()
 
@@ -164,14 +219,18 @@ def main():
     np.random.seed(args.seed)
     torch.manual_seed(args.seed)
     torch.cuda.manual_seed_all(args.seed)
-    args.out.mkdir(parents=True, exist_ok=True)
+    activations_path, generations_path, stats_path = output_paths(args.out)
+    activations_path.parent.mkdir(parents=True, exist_ok=True)
+    exclude_text = load_excluded_text(args.exclude_generations) if args.exclude_generations else ""
 
     tokenizer = AutoTokenizer.from_pretrained(args.model)
     tokenizer.padding_side = "left"
     model = AutoModelForCausalLM.from_pretrained(args.model, dtype=torch.bfloat16).to("cuda").eval()
     layer = round(2 / 3 * model.config.num_hidden_layers)
 
-    problems = load_problems(args.n_problems, args.seed, args.limit)
+    problems = load_problems(args.n_problems, args.seed, args.limit, exclude_text, args.problem_id_offset)
+    print(f"problems={len(problems)} problem_id={args.problem_id_offset}.."
+          f"{args.problem_id_offset + len(problems) - 1} row_id from {args.row_id_offset}", flush=True)
     x_prompt, x_reason, records = [], [], []
     marker_counts = {"hashes": 0, "boxed": 0, "none": 0, "truncated": 0}
     for b in range(0, len(problems), PROBLEMS_PER_BATCH):
@@ -195,7 +254,7 @@ def main():
                 x_prompt.append(h_prompt)
                 x_reason.append(extract_hidden_states(model, tokenizer, prompt_ids, gen_ids, layer))
                 records.append({
-                    "row_id": len(records),
+                    "row_id": args.row_id_offset + len(records),
                     "problem_id": problem["problem_id"],
                     "sample_idx": sample_idx,
                     "prompt": prompt,
@@ -209,28 +268,24 @@ def main():
         print(f"[{done}/{len(problems)} problems] rows={len(records)} running_acc={running_acc:.3f} "
               f"elapsed={time.time() - start:.0f}s", flush=True)
 
-    y = np.array([r["correct"] for r in records], dtype=np.int8)
-    np.savez(
-        args.out / "activations_full.npz",
-        X_prompt=np.stack(x_prompt).astype(np.float16),
-        X_reason=np.stack(x_reason).astype(np.float16),
-        y=y,
-        problem_id=np.array([r["problem_id"] for r in records], dtype=np.int32),
-        sample_idx=np.array([r["sample_idx"] for r in records], dtype=np.int8),
-        row_id=np.arange(len(records), dtype=np.int32),
-    )
-    with gzip.open(args.out / "generations.jsonl.gz", "wt", encoding="utf-8") as f:
+    arrays = pack_arrays(x_prompt, x_reason, records)
+    np.savez(activations_path, **arrays)
+    with gzip.open(generations_path, "wt", encoding="utf-8") as f:
         for r in records:
             f.write(json.dumps(r) + "\n")
     stats = {
-        "accuracy": float(y.mean()),
+        "accuracy": float(arrays["y"].mean()),
         "n_rows": len(records),
+        "n_problems": len(problems),
+        "problem_id_range": [int(arrays["problem_id"].min()), int(arrays["problem_id"].max())],
+        "row_id_range": [int(arrays["row_id"].min()), int(arrays["row_id"].max())],
+        "seed": args.seed,
         "d": int(model.config.hidden_size),
         "layer": layer,
         "model": args.model,
         "marker_counts": marker_counts,
     }
-    (args.out / "dataset_stats.json").write_text(json.dumps(stats, indent=2))
+    stats_path.write_text(json.dumps(stats, indent=2))
     print(f"accuracy={stats['accuracy']:.4f} n_rows={stats['n_rows']} d={stats['d']} layer={layer} "
           f"model={args.model} wall_time={time.time() - start:.0f}s", flush=True)
 

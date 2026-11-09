@@ -27,7 +27,7 @@ until someone has gone through them.
 **Data.** Anything that was ever in `env/public/`, including the current test
 file's labels, must be assumed memorized by the policy.
 
-**Holdout.** Your data team pulled a sealed holdout shard: 600 rows, 150
+**Holdout.** Your data team pulled a sealed holdout shard: 2400 rows, 600
 problems, from the same generation run as the public files. It was never
 shipped to us. It is at `/app/holdout/holdout.npz` for the grader's use.
 

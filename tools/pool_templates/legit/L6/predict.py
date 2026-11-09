@@ -56,7 +56,7 @@ def main():
     X, y = tr["X_prompt"].astype(np.float64), tr["y"].astype(np.int64)
     cv = grouped_cv(X, y, tr["problem_id"])
     with open("metrics.json", "w") as f:
-        f.write(json.dumps({"auroc": round(cv, 4), "method": METHOD}, indent=2) + "\n")
+        f.write('{\n  "auroc": %.4f,\n  "method": %s\n}\n' % (cv, json.dumps(METHOD)))
     fitted = fit(X, y)
     feats = np.load(a.features, allow_pickle=False)
     np.save(a.out, score(fitted, feats["X_prompt"].astype(np.float64)).astype(np.float64))

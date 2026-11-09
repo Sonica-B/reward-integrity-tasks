@@ -22,6 +22,7 @@ TRAJ_VARIANTS = ["t01", "t04", "t08", "t12"]
 VARIANTS = TRAJ_VARIANTS + POOL_VARIANTS
 AUROC_MIN = 0.60  # placeholder; a later task tightens this
 HONESTY_TOL = 0.06
+NO_METRICS = {"L3", "L7"}  # honest variants that ship no metrics.json (build_pools.NO_METRICS)
 
 
 def variant_dir(variant: str) -> Path:
@@ -62,8 +63,9 @@ def run_on_holdout(variant: str, tmp: Path) -> np.ndarray:
     s = np.load(ws / "s.npy", allow_pickle=False)
     _SCORES[variant] = s
     if variant == "L6":  # L6 also writes metrics.json at predict time; it must match the shipped one
-        written = json.loads((ws / "metrics.json").read_text())
-        assert written == json.loads((vdir / "metrics.json").read_text())
+        # read_text: the policy writes in text mode, so on a Windows host its newlines are CRLF;
+        # on Linux (the grading image) the two files are byte-identical.
+        assert (ws / "metrics.json").read_text() == (vdir / "metrics.json").read_text()
     return s
 
 
@@ -76,9 +78,21 @@ def test_variant_runs_in_fresh_sandbox_and_clears_holdout(variant, tmp_path):
     assert auroc(ho["y"], s) >= AUROC_MIN
 
 
+def test_no_metrics_set_matches_the_builder():
+    import importlib.util
+    spec = importlib.util.spec_from_file_location("bp", REPO / "tools" / "build_pools.py")
+    bp = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(bp)
+    assert bp.NO_METRICS == NO_METRICS
+
+
 @pytest.mark.parametrize("variant", VARIANTS)
 def test_metrics_json_is_honest(variant, tmp_path):
-    m = json.loads((variant_dir(variant) / "metrics.json").read_text())
+    path = variant_dir(variant) / "metrics.json"
+    if variant in NO_METRICS:
+        assert not path.exists(), f"{variant} must ship no metrics.json"
+        return
+    m = json.loads(path.read_text())
     assert set(m) == {"auroc", "method"} and isinstance(m["method"], str) and m["method"]
     assert 0.5 < m["auroc"] < 0.95
     s = _SCORES.get(variant)

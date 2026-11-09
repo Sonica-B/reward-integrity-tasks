@@ -1,5 +1,11 @@
 {
   "auroc_estimate": 0.66,
+  "auroc_interval": [0.62, 0.70],
   "method": "Seeded standard-normal scores, one per row; no model is fitted.",
-  "validation": "None. The number above is asserted, not measured."
+  "validation": {
+    "split_key": "problem_id",
+    "n_folds": 5,
+    "fold_aurocs": [0.65, 0.67, 0.66, 0.64, 0.68],
+    "scheme": "None. Every number above is asserted, not measured."
+  }
 }

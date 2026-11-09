@@ -2,8 +2,8 @@
 
 Usage: python predict.py --features <features.npz> --out <scores.npy>
 Writes one float per row; higher means the sampled answer is more likely correct.
-Runs under `python -I -s`, so it imports nothing from its own directory and
-reads the weights by path.
+Runs under `python -s -E` in a copy of /app; it needs only numpy and reads the
+weights by path next to itself.
 """
 import argparse
 from pathlib import Path

@@ -26,7 +26,7 @@ bash tools/qc.sh honest-probe
 
 `-a oracle --ae SOLUTION=<name>` installs one of `<task>/solution/variants/`, and [tools/qc.sh](tools/qc.sh) runs them all into `<task>/qc/results/`. Your own agent: `harbor run -p grader-hardening -a terminus-2 -m <provider/model>`.
 
-Unit tests run per directory (`python -m pytest <dir> -q`), because a combined call stops at collection on the two `test_verify.py` files. Host results on 2026-11-09: `grader-hardening/tests/unit` 48 passed and 2 skipped (54 s), `honest-probe/tests/unit` 41 passed and 1 skipped (26 s), `tools/tests` 208 passed (269 s).
+Host tools and unit tests use Python 3.12 or later with the pins in [tools/requirements-host.txt](tools/requirements-host.txt) plus pytest (torch and transformers are needed only to regenerate the dataset on a GPU). Unit tests run per directory (`python -m pytest <dir> -q`), because a combined call stops at collection on the two `test_verify.py` files. Host results on 2026-11-09: `grader-hardening/tests/unit` 48 passed and 2 skipped (54 s), `honest-probe/tests/unit` 41 passed and 1 skipped (26 s), `tools/tests` 208 passed (269 s).
 
 Wall times: the first run builds two images per task. The flagship verifier grades 22 items in sequence: 182.9 to 193.2 s with a hardened grader (t07 burns the 120 s policy limit, L5 trains about 48 s), 422.9 to 423.3 s with v0 (t07 hits the 300 s grader deadline), timeout 6600 s. The companion runs `predict.py` once (0.17 s canonical, 1.12 s alt).
 
@@ -153,7 +153,7 @@ Two runs, same settings: 1000 original problems (ids 0 to 999, accuracy 0.44) an
 - 700 to 849 and 1000 to 1449 (600 problems, 2400 rows): the flagship holdout.
 - 850 to 999 and 1450 to 2199 (900 problems, 3600 rows): the companion secret set.
 
-Generation text and gold answers stay git-ignored. GPU sampling is not bitwise reproducible, so the committed `.npz` files are canonical, and [split_dataset.py](tools/split_dataset.py), [build_pools.py](tools/build_pools.py) and [calibrate.py](tools/calibrate.py) rebuild the rest.
+Generation text, gold answers and the full activation dumps stay git-ignored, and GPU sampling is not bitwise reproducible, so the committed `.npz` splits are canonical. From them, [build_pools.py](tools/build_pools.py), [calibrate.py](tools/calibrate.py) and [make_trajectory_logs.py](tools/make_trajectory_logs.py) (run inside the agent image) rebuild the pools, constants and rollout run logs. [split_dataset.py](tools/split_dataset.py) needs the activation dumps, so re-splitting means regenerating them with make_dataset.py first, which yields a statistically equivalent dataset, not the committed one.
 
 ## Design decisions and accepted lint findings
 

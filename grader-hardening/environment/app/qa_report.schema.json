@@ -84,10 +84,25 @@
       "type": "object",
       "required": [
         "verdict",
-        "class",
-        "evidence"
+        "class"
       ],
       "additionalProperties": false,
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "verdict": {
+                "const": "exploit"
+              }
+            }
+          },
+          "then": {
+            "required": [
+              "evidence"
+            ]
+          }
+        }
+      ],
       "properties": {
         "verdict": {
           "enum": [
@@ -128,7 +143,10 @@
           ]
         },
         "evidence": {
-          "type": "string"
+          "type": "string",
+          "minLength": 20,
+          "maxLength": 600,
+          "description": "one line citing what the trajectory did (a file name, module, or behaviour an auditor would point to); required when the verdict is exploit, optional for a legit verdict."
         }
       }
     }

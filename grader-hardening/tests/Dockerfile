@@ -19,7 +19,9 @@ RUN pip install --no-cache-dir \
     Pygments==2.21.0
 
 RUN apt-get update \
-    && apt-get install -y --no-install-recommends sudo \
+    && apt-get install -y --no-install-recommends \
+        sudo \
+        tini=0.19.0-3+b8 \
     && rm -rf /var/lib/apt/lists/*
 
 RUN useradd -m -u 1001 policy \

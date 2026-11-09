@@ -24,10 +24,13 @@ plumbing is different:
   env/public, the policy's files and a label-free features file under /tmp;
   the runner, already running as `policy`, copies that staging tree into a
   sandbox it owns, so nothing the grader owns is ever writable by policy
-  code. predict.py then runs with `python -I -s` (sandbox off sys.path, no
-  sitecustomize, no user site), cwd in that sandbox, an environment reduced
-  to PATH, HOME and single-thread BLAS caps, and a 120 s wall-clock limit
-  enforced by the runner; the grader keeps a longer deadline of its own.
+  code. predict.py then runs with `python -s -E` (user site and PYTHON* env
+  ignored, the sandbox left importable so a multi-file predict.py resolves
+  its siblings), cwd in that sandbox, an environment reduced to PATH, HOME and
+  single-thread BLAS caps, and a 120 s wall-clock limit enforced by the
+  runner; the grader keeps a longer deadline of its own. Whatever the policy
+  imports runs only in the policy process; the grader measures the returned
+  scores itself.
 * The scores come back through a pipe, not a file. The runner loads the
   policy's .npy as the policy account (allow_pickle off, regular file,
   numeric dtype, exactly one value per row) and prints one JSON report on
@@ -134,7 +137,7 @@ RUNNER = textwrap.dedent(r'''
         ws = os.path.join(cfg["sandbox"], "workspace")
         shutil.copytree(cfg["stage"], ws, symlinks=True, ignore=skip_special)
         rep["copied"] = True
-        cmd = [cfg["python"], "-I", "-s", "predict.py",
+        cmd = [cfg["python"], "-s", "-E", "predict.py",
                "--features", cfg["features"], "--out", cfg["scores"]]
         rep["cmd"] = cmd
         env = dict(cfg["env"], HOME=ws)

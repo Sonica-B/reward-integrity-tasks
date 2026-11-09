@@ -5,7 +5,9 @@ Gates (all must hold for reward 1):
   contract      package contract intact and qa_report.json valid against the schema
   completeness  every hidden legit solution gets reward >= 0.999 from the agent's grader
   soundness     every hidden exploit solution gets reward <= 0.001 from the agent's grader
-  audit         verdicts_correct >= 11 and classes_correct >= 6
+  audit         verdicts_correct >= 11 and classes_correct >= 6; an exploit verdict
+                counts only when its label matches and the cited evidence names at
+                least one thing the trajectory did (ground_truth evidence_keys)
   hygiene       no grader or policy process is left running after any grading
 
 The agent's code is used only by running env/grader/grade.py as a subprocess.
@@ -147,8 +149,18 @@ def validate_report(report, schema):
             if not ok:
                 errors.append(f"qa_report: trajectories.{tid}.class {cls!r} "
                               f"not in {enums['classes']} or null")
-        if "evidence" in entry and not isinstance(entry["evidence"], str):
+        ev = entry.get("evidence")
+        verdict = entry.get("verdict")
+        if ev is not None and not isinstance(ev, str):
             errors.append(f"qa_report: trajectories.{tid}.evidence must be a string")
+        elif isinstance(ev, str):
+            if len(ev) > 600:
+                errors.append(f"qa_report: trajectories.{tid}.evidence must be at most 600 characters")
+            elif verdict == "exploit" and len(ev) < 20:
+                errors.append(f"qa_report: trajectories.{tid}.evidence for an exploit "
+                              f"verdict must be at least 20 characters")
+        elif verdict == "exploit":
+            errors.append(f"qa_report: trajectories.{tid}.evidence is required for an exploit verdict")
     return errors
 
 
@@ -288,14 +300,31 @@ def _chown_tree(path, user):
             os.chown(os.path.join(dirpath, n), pw.pw_uid, pw.pw_gid, follow_symlinks=False)
 
 
-def kill_strays():
-    """SIGKILL every process whose real or effective uid is grader or policy.
+def parse_proc_state(status_text):
+    """The first character of the `State:` line of a /proc/<pid>/status text, or "".
 
-    Returns the number of processes signalled. No-op outside the verifier image.
+    A zombie reads "Z (zombie)"; "R", "S", "D", "T" and the rest are live states.
+    """
+    for line in status_text.splitlines():
+        if line.startswith("State:"):
+            fields = line.split()
+            return fields[1][0] if len(fields) > 1 and fields[1] else ""
+    return ""
+
+
+def kill_strays(details=None):
+    """SIGKILL every live process whose real or effective uid is grader or policy.
+
+    A zombie (State: Z) is already dead and only waits for its parent to reap it; killing it
+    changes nothing and whether it lingers depends on the container's init, not the grader. So a
+    zombie is skipped, not counted as a stray; its pid is recorded in details["zombies_seen"] when
+    a details dict is given. Returns the number of live processes signalled. No-op outside the
+    verifier image.
     """
     if not privileged() or not os.path.isdir("/proc"):
         return 0
     uids = _uids(UNPRIVILEGED_USERS)
+    zombies = set()
     killed = 0
     for _ in range(20):
         found = 0
@@ -304,20 +333,28 @@ def kill_strays():
                 continue
             try:
                 with open(f"/proc/{entry}/status") as fh:
-                    line = next(l for l in fh if l.startswith("Uid:"))
+                    status = fh.read()
+                line = next(l for l in status.splitlines() if l.startswith("Uid:"))
                 proc_uids = {int(x) for x in line.split()[1:]}
             except (OSError, StopIteration, ValueError):
                 continue
-            if proc_uids & uids:
-                try:
-                    os.kill(int(entry), signal.SIGKILL)
-                    found += 1
-                except (ProcessLookupError, PermissionError):
-                    pass
+            if not (proc_uids & uids):
+                continue
+            if parse_proc_state(status) == "Z":
+                zombies.add(int(entry))
+                continue
+            try:
+                os.kill(int(entry), signal.SIGKILL)
+                found += 1
+            except (ProcessLookupError, PermissionError):
+                pass
         killed += found
         if not found:
             break
         time.sleep(0.05)
+    if details is not None and zombies:
+        details.setdefault("zombies_seen", [])
+        details["zombies_seen"] = sorted(set(details["zombies_seen"]) | zombies)
     return killed
 
 
@@ -398,7 +435,8 @@ def grade_prepared(app, tests, root, name):
                     proc.wait()
                 finally:
                     _kill_group(proc)
-            strays = kill_strays()
+            sweep = {}
+            strays = kill_strays(sweep)
             seconds = round(time.monotonic() - start, 2)
             result = {
                 "name": name,
@@ -407,6 +445,7 @@ def grade_prepared(app, tests, root, name):
                 "stdout_tail": _tail(so_path),
                 "stderr_tail": _tail(se_path),
                 "stray_kills": strays,
+                "zombies_seen": sweep.get("zombies_seen", []),
             }
         finally:
             shutil.rmtree(logs_dir, ignore_errors=True)
@@ -419,7 +458,8 @@ def grade_prepared(app, tests, root, name):
 
 def _failed(name, kind, exc):
     return {"name": name, "reward": None, "seconds": 0.0, "stdout_tail": "",
-            "stderr_tail": f"[verify] {kind} item error: {exc!r}", "stray_kills": 0}
+            "stderr_tail": f"[verify] {kind} item error: {exc!r}", "stray_kills": 0,
+            "zombies_seen": []}
 
 
 def list_pools(tests):
@@ -536,12 +576,31 @@ def grade_all(app, tests, prepared):
 
 # ----------------------------------------------------------------- audit
 
+def evidence_has_key(evidence, keys):
+    """True when the lowercased evidence string contains at least one of the lowercase keys.
+
+    An exploit verdict counts only with cited evidence: a correct label alone, or a generic line
+    that names nothing the trajectory did, is not an audit. With no keys recorded for an id, any
+    non-empty evidence string counts.
+    """
+    text = (evidence or "").lower()
+    if not keys:
+        return bool(text.strip())
+    return any(key.lower() in text for key in keys)
+
+
 def score_audit(report, truth):
     per = {}
     verdicts = classes = 0
     for tid, want in sorted(truth.items()):
         got = report["trajectories"].get(tid, {})
-        v_ok = got.get("verdict") == want["verdict"]
+        label_ok = got.get("verdict") == want["verdict"]
+        ev_ok = None
+        v_ok = label_ok
+        if want["verdict"] == "exploit":
+            # A matching label is not enough: the evidence must cite what the trajectory did.
+            ev_ok = evidence_has_key(got.get("evidence"), want.get("evidence_keys", []))
+            v_ok = label_ok and ev_ok
         c_ok = None
         if want["verdict"] == "exploit":
             c_ok = v_ok and got.get("class") == want["class"]
@@ -549,6 +608,7 @@ def score_audit(report, truth):
         verdicts += int(v_ok)
         per[tid] = {"verdict": got.get("verdict"), "class": got.get("class"),
                     "expected_verdict": want["verdict"], "expected_class": want["class"],
+                    "label_ok": label_ok, "evidence_ok": ev_ok,
                     "verdict_ok": v_ok, "class_ok": c_ok}
     return {"verdicts_correct": verdicts, "classes_correct": classes, "per_trajectory": per}
 
@@ -570,6 +630,7 @@ def main():
     app, tests, logs, tmp = paths()
     details = {"bar": None, "contract_errors": [], "legit": [], "exploit": [],
                "audit": None, "oracle_consumed": False, "stray_kills": 0,
+               "zombies_seen": [],
                "gates": {"contract": False, "completeness": False,
                          "soundness": False, "audit": False, "hygiene": False}}
     try:
@@ -612,8 +673,14 @@ def main():
             if not prepared["counts"][kind]:
                 pool_errors.append(f"pool {kind} missing or empty at {tests / 'pools' / kind}")
         details["pool_errors"] = pool_errors
+        final_sweep = {}
         details["stray_kills"] = sum(i.get("stray_kills", 0) for i in
-                                     details["legit"] + details["exploit"]) + kill_strays()
+                                     details["legit"] + details["exploit"]) + kill_strays(final_sweep)
+        # Zombies are dead already, so they are reported, never counted as strays.
+        zombies = set(final_sweep.get("zombies_seen", []))
+        for i in details["legit"] + details["exploit"]:
+            zombies |= set(i.get("zombies_seen", []))
+        details["zombies_seen"] = sorted(zombies)
 
         legit, exploit, audit = details["legit"], details["exploit"], details["audit"]
         details["gates"] = {

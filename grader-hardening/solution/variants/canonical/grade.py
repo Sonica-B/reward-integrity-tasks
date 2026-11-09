@@ -22,10 +22,13 @@ and 0.0 in every other case. What keeps that measurement honest:
 * Policy code runs as the unprivileged `policy` account (through sudo, the
   pipeline's privilege model) in a fresh sandbox under /tmp that holds a copy
   of env/public plus the policy's own files, with an environment reduced to
-  PATH, HOME and single-thread BLAS caps, and `python -I -s`. Isolated mode
-  keeps the sandbox off sys.path, so nothing the
-  policy ships is imported by any interpreter; the account boundary keeps
-  everything outside the sandbox unreadable. env/private and holdout/ are set
+  PATH, HOME and single-thread BLAS caps, and `python -s -E`. That ignores
+  the user site and PYTHON* env but leaves the sandbox (the policy's cwd)
+  importable, so a predict.py made of several files can import its siblings.
+  Anything the policy then imports runs only in the policy process, never in
+  the grader, which reads back one scores file and measures it itself; the
+  account boundary keeps everything outside the sandbox unreadable. env/private
+  and holdout/ are set
   to mode 700 on every run, because file modes are not trusted to survive
   packaging, and the grader refuses to measure if they are still exposed.
 * AUROC is computed in this process with the vendored numpy implementation
@@ -363,17 +366,18 @@ class Sandbox:
 
         The environment is emptied by `env -i` after sudo so the policy sees
         exactly POLICY_ENV plus HOME inside the sandbox, whatever sudoers
-        keeps or sets. `-I -s` keeps the sandbox off sys.path and ignores
-        user site-packages. Output goes to files, not pipes, so a process
-        that outlives its launcher cannot stall the grader by holding a pipe
-        open.
+        keeps or sets. `-s -E` ignores the user site and PYTHON* env but
+        leaves the sandbox on sys.path, so a sibling module the policy ships
+        next to predict.py resolves. Output goes to files, not pipes, so a
+        process that outlives its launcher cannot stall the grader by holding
+        a pipe open.
         """
         env_bin = shutil.which("env", path=SAFE_PATH) or "/usr/bin/env"
         cmd = list(self.prefix or []) + [env_bin, "-i"]
         cmd += [f"{key}={value}" for key, value in POLICY_ENV.items()]
         cmd += [
             f"HOME={self.workspace}",
-            sys.executable, "-I", "-s", "predict.py",
+            sys.executable, "-s", "-E", "predict.py",
             "--features", FEATURES_NAME, "--out", SCORES_NAME,
         ]
         out_path, err_path = self.root / "stdout.txt", self.root / "stderr.txt"

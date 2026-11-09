@@ -33,8 +33,8 @@ SCHEME = (
     "Shuffled {k}-fold KFold over rows, repeated over seeds {seeds}: one AUROC per "
     "validation fold of {rpf:.0f} rows, counted as {ppf:.0f} problems' worth. "
     "auroc_estimate is the mean fold AUROC; auroc_interval is mean +/- {mult:g} * "
-    "sd(fold_aurocs) * sqrt({ppf:.0f} / {secret}). Rows of the same problem may fall "
-    "on both sides of a split."
+    "sqrt(sd^2 * {ppf:.0f} / {secret} + sd^2 / {k}) with sd = sd(fold_aurocs). Rows of "
+    "the same problem may fall on both sides of a split."
 )
 
 

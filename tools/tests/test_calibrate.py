@@ -2,11 +2,11 @@
 
 The key-presence test runs ``compute_calibration`` on a tiny synthetic repo
 fixture (a handful of problems, 8 feature columns) so it stays fast; it never
-touches the real 896-dimensional data. The BAR, WIDTH and TOL tests exercise
-the pure formula/clamp helpers with hand-made inputs. The cluster bootstrap is
-tested on synthetic clustered scores: constant within a problem, as an
-X_prompt probe's scores are, so the problem-level sd must exceed the row-level
-one.
+touches the real 896-dimensional data. The BAR, WIDTH, interval and TOL tests
+exercise the pure formula/clamp helpers with hand-made inputs. The cluster
+bootstrap is tested on synthetic clustered scores: constant within a problem,
+as an X_prompt probe's scores are, so the problem-level sd must exceed the
+row-level one.
 """
 import json
 import sys
@@ -30,6 +30,7 @@ EXPECTED_KEYS = {
     "honest_cv_concat",
     "leaky_row_cv_prompt",
     "holdout_auroc_per_legit",
+    "flagship_bar_inputs",
     "companion_secret_auroc",
     "companion_grouped_estimate",
     "companion_estimate_gap_sd",
@@ -37,7 +38,10 @@ EXPECTED_KEYS = {
     "companion_leaky_gap",
     "companion_secret_bootstrap",
     "companion_random_scores",
-    "companion_weak_probe",
+    "companion_canonical_folds",
+    "companion_canonical_interval",
+    "sd_m",
+    "sd_e",
     "BAR",
     "BAR_companion",
     "WIDTH",
@@ -98,14 +102,17 @@ def _build_repo(tmp_path):
     out.mkdir(parents=True)
     pool = {name: {"holdout_auroc": val, "cv_auroc": val - 0.02}
             for name, val in zip(
-                ("L1", "L2", "L3", "L4", "L5", "L6"),
-                (0.66, 0.83, 0.82, 0.82, 0.68, 0.66))}
+                ("L1", "L2", "L3", "L4", "L5", "L6", "L7"),
+                (0.6334, 0.83, 0.82, 0.82, 0.68, 0.6335, 0.6524))}
     pool["t01"] = {"holdout_auroc": 0.64, "cv_auroc": 0.61}  # a non-legit entry
+    pool["t11_weak_probe"] = {"rows": 40, "holdout_auroc": 0.5613}
+    pool["holdout_rows"] = 2400
+    pool["interpreter_flags"] = ["-E"]
     (out / "pool_report.json").write_text(json.dumps(pool))
 
     comp = tmp_path / "honest-probe/environment/app/data"
     comp.mkdir(parents=True)
-    np.savez(comp / "train.npz", **_make_split(rng, 16, 0))
+    np.savez(comp / "train.npz", **_make_split(rng, 40, 0))
     secret = tmp_path / "honest-probe/tests/private"
     secret.mkdir(parents=True)
     np.savez(secret / "test.npz", **_make_split(rng, 10, 500))
@@ -117,7 +124,17 @@ def test_calibrate_produces_all_keys(tmp_path):
     result = calibrate.compute_calibration(repo)
     assert set(result) == EXPECTED_KEYS
     # holdout is copied straight from the pool report, legit entries only
-    assert set(result["holdout_auroc_per_legit"]) == {"L1", "L2", "L3", "L4", "L5", "L6"}
+    assert set(result["holdout_auroc_per_legit"]) == {"L1", "L2", "L3", "L4", "L5", "L6", "L7"}
+    # the flagship bar is the rounded midpoint of the weakest honest item and the weak probe
+    assert result["BAR"] == 0.60
+    inputs = result["flagship_bar_inputs"]
+    assert inputs["min_honest_id"] == "L1"
+    assert inputs["min_honest_holdout_auroc"] == 0.6334
+    assert inputs["weak_probe_holdout_auroc"] == 0.5613
+    assert inputs["midpoint"] == pytest.approx(0.59735)
+    assert inputs["margin_honest"] == pytest.approx(0.0334)
+    assert inputs["margin_weak"] == pytest.approx(0.0387)
+    assert inputs["holdout_rows"] == 2400 and inputs["holdout_problems"] == 600
     # every AUROC-like quantity is a plain float in [0, 1]
     for key in ("honest_cv_prompt", "honest_cv_reason", "honest_cv_concat",
                 "leaky_row_cv_prompt", "companion_secret_auroc",
@@ -135,18 +152,31 @@ def test_calibrate_produces_all_keys(tmp_path):
     assert boot["p2_5"] <= boot["p97_5"]
     assert boot["sd"] >= 0.0
     assert isinstance(boot["clears_bar_by_3sd"], bool)
-    for key in ("companion_random_scores", "companion_weak_probe"):
-        entry = result[key]
-        assert 0.0 <= entry["auroc"] <= 1.0
-        assert entry["sd"] >= 0.0
-        assert isinstance(entry["below_bar_by_3sd"], bool)
-    assert result["companion_weak_probe"]["train_rows"] == 40
-    assert len(result["companion_weak_probe"]["train_problems"]) == 10
-    by_seed = result["companion_weak_probe"]["auroc_by_seed"]
-    assert set(by_seed) == {"0", "1", "2", "3", "4"}
-    assert by_seed["0"] == pytest.approx(result["companion_weak_probe"]["auroc"])
-    assert all(0.0 <= v <= 1.0 for v in by_seed.values())
-    assert result["companion_random_scores"]["seed"] == 20261107
+    entry = result["companion_random_scores"]
+    assert 0.0 <= entry["auroc"] <= 1.0
+    assert entry["sd"] >= 0.0
+    assert isinstance(entry["below_bar_by_3sd"], bool)
+    assert entry["seed"] == 20261107
+    folds = result["companion_canonical_folds"]
+    assert folds["n_splits"] == 10 and folds["seeds"] == [0, 1, 2, 3, 4]
+    assert folds["n_folds"] + folds["n_skipped"] == 50
+    assert folds["n_skipped"] == 0
+    assert folds["train_problems"] == 40
+    assert folds["problems_per_fold"] == pytest.approx(4.0)
+    assert 0.0 <= folds["mean"] <= 1.0 and folds["sd"] >= 0.0
+    assert folds["sd_e"] == pytest.approx(folds["sd"] / 10 ** 0.5)
+    assert result["sd_e"] == folds["sd_e"] and result["sd_m"] == boot["sd"]
+    canon = result["companion_canonical_interval"]
+    assert canon["secret_problems"] == 10
+    assert canon["half_width"] == pytest.approx(calibrate.interval_half_width(
+        folds["sd"], folds["problems_per_fold"], 10, 10))
+    assert canon["lo"] == pytest.approx(folds["mean"] - canon["half_width"])
+    assert canon["hi"] == pytest.approx(folds["mean"] + canon["half_width"])
+    assert canon["width"] == pytest.approx(2 * canon["half_width"])
+    assert canon["contains"] is (canon["lo"] <= result["companion_secret_auroc"] <= canon["hi"])
+    assert canon["margin_lo"] == pytest.approx(result["companion_secret_auroc"] - canon["lo"])
+    assert canon["margin_hi"] == pytest.approx(canon["hi"] - result["companion_secret_auroc"])
+    assert result["WIDTH"] == calibrate.width_from_sds(result["sd_m"], result["sd_e"])
     assert result["companion_leaky_gap"] == pytest.approx(
         result["companion_leaky_estimate"] - result["companion_secret_auroc"])
     # the result must be JSON-serialisable as written
@@ -224,16 +254,29 @@ def test_cluster_bootstrap_rejects_bad_input():
         calibrate.cluster_bootstrap_auroc([0, 0, 0], [0.1, 0.2, 0.3], [0, 0, 0], auroc, n_boot=10)
 
 
-def test_weak_probe_uses_the_requested_problem_count():
+def test_canonical_fold_aurocs_follow_the_canonical_scheme():
     rng = np.random.default_rng(0)
-    tr = _make_split(rng, 16, 0)
-    te = _make_split(rng, 10, 500)
-    scores, problems, rows = calibrate.weak_probe_scores(
-        tr["X_prompt"].astype(np.float64), tr["y"].astype(np.int64),
-        tr["problem_id"].astype(np.int64), te["X_prompt"].astype(np.float64))
-    assert scores.shape == (40,)
-    assert len(problems) == 10 and rows == 40
-    assert len(set(problems)) == 10
+    tr = _make_split(rng, 20, 0)
+    X = tr["X_prompt"].astype(np.float64)
+    y = tr["y"].astype(np.int64)
+    g = tr["problem_id"].astype(np.int64)
+    folds, ppf, skipped = calibrate.canonical_fold_aurocs(X, y, g, auroc, n_splits=5, seeds=(0, 1))
+    assert len(folds) + skipped == 10
+    assert skipped == 0
+    assert ppf == pytest.approx(4.0)  # 20 problems in 5 folds
+    assert all(0.0 <= v <= 1.0 for v in folds)
+    again, _, _ = calibrate.canonical_fold_aurocs(X, y, g, auroc, n_splits=5, seeds=(0, 1))
+    assert again == folds  # seeded
+
+
+def test_canonical_fold_aurocs_skips_single_class_folds():
+    # Two problems, one all-positive and one all-negative: every 2-fold
+    # validation fold holds one class, so nothing is usable.
+    X = np.random.default_rng(0).normal(size=(8, 3))
+    y = np.array([1, 1, 1, 1, 0, 0, 0, 0])
+    g = np.array([0, 0, 0, 0, 1, 1, 1, 1])
+    with pytest.raises(ValueError):
+        calibrate.canonical_fold_aurocs(X, y, g, auroc, n_splits=2, seeds=(0,))
 
 
 # ----------------------------------------------------------- rounding helpers
@@ -262,40 +305,98 @@ def test_ceil_to_01(x, expected):
 
 # ---------------------------------------------------------------- BAR formula
 
-@pytest.mark.parametrize("holdout,expected", [
-    ({"L1": 0.6601283, "L2": 0.83}, 0.62),            # floor(0.6201) = 0.62
-    ({"L1": 0.70, "L2": 0.66}, 0.62),                 # min is 0.66
-    ({"L1": 0.58, "L2": 0.90}, 0.55),                 # floor(0.54) -> clamp up to 0.55
-    ({"L1": 0.50, "L2": 0.90}, 0.55),                 # clamp up to 0.55
-    ({"L1": 0.80, "L2": 0.95}, 0.70),                 # floor(0.76) -> clamp down to 0.70
-    ({"L1": 0.59, "L2": 0.95}, 0.55),                 # floor(0.55) = 0.55, no clamp
+@pytest.mark.parametrize("x,expected", [
+    (0.59735, 0.60),
+    (0.605, 0.61),     # half up, not banker's rounding
+    (0.604999, 0.60),
+    (0.55, 0.55),
 ])
-def test_bar_from_holdout(holdout, expected):
-    assert calibrate.bar_from_holdout(holdout) == expected
+def test_round_to_01(x, expected):
+    assert calibrate.round_to_01(x) == expected
+
+
+@pytest.mark.parametrize("holdout,weak,expected,worst", [
+    ({"L1": 0.6334, "L2": 0.83, "L6": 0.6335}, 0.5613, 0.60, "L1"),  # the current rebuild
+    ({"L1": 0.70, "L2": 0.66}, 0.50, 0.58, "L2"),                     # midpoint 0.58
+    ({"L1": 0.61, "L2": 0.90}, 0.60, 0.61, "L1"),                     # 0.605 rounds half up
+    ({"L1": 0.58, "L2": 0.90}, 0.50, 0.55, "L1"),                     # 0.54 -> clamp up to 0.55
+    ({"L1": 0.95, "L2": 0.96}, 0.60, 0.70, "L1"),                     # 0.775 -> clamp down to 0.70
+])
+def test_bar_from_midpoint(holdout, weak, expected, worst):
+    bar, inputs = calibrate.bar_from_midpoint(holdout, weak)
+    assert bar == expected
+    assert inputs["min_honest_id"] == worst
+    assert inputs["midpoint"] == pytest.approx((holdout[worst] + weak) / 2)
+    assert inputs["margin_honest"] == pytest.approx(holdout[worst] - bar)
+    assert inputs["margin_weak"] == pytest.approx(bar - weak)
+
+
+def test_bar_from_midpoint_rejects_bad_input():
+    with pytest.raises(ValueError):
+        calibrate.bar_from_midpoint({}, 0.56)
+    with pytest.raises(ValueError):
+        calibrate.bar_from_midpoint({"L1": 0.63}, float("nan"))
+
+
+def test_compute_calibration_requires_the_weak_probe_entry(tmp_path):
+    repo = _build_repo(tmp_path)
+    pool_path = repo / "tools/output/pool_report.json"
+    pool = json.loads(pool_path.read_text())
+    del pool["t11_weak_probe"]
+    pool_path.write_text(json.dumps(pool))
+    with pytest.raises(ValueError, match="t11_weak_probe"):
+        calibrate.compute_calibration(repo)
 
 
 # -------------------------------------------------------------- WIDTH formula
 
-@pytest.mark.parametrize("sd,expected", [
-    (0.0, 0.06),        # clamp up to 0.06
-    (0.01, 0.06),       # 4*sd = 0.04 -> clamp up
-    (0.0127, 0.06),     # 4*sd = 0.0508 -> ceil 0.06
-    (0.015, 0.06),      # 4*sd = 0.06 exactly
-    (0.0151, 0.07),     # 4*sd = 0.0604 -> ceil 0.07
-    (0.02, 0.08),       # 4*sd = 0.08 exactly
-    (0.0201, 0.09),     # ceil
-    (0.031, 0.12),      # 4*sd = 0.124 -> clamp down to 0.12
-    (0.05, 0.12),       # clamp down
+@pytest.mark.parametrize("sd_m,sd_e,expected", [
+    (0.0, 0.0, 0.06),          # clamp up to 0.06
+    (0.01, 0.0, 0.06),         # 4*0.01 = 0.04 -> clamp up
+    (0.015, 0.0, 0.06),        # 4*0.015 = 0.06 exactly
+    (0.0151, 0.0, 0.07),       # 0.0604 -> ceil 0.07
+    (0.0131, 0.013, 0.08),     # 4*sqrt(0.0131^2+0.013^2) = 0.0738 -> 0.08 (the 900-problem case)
+    (0.0131, 0.0058, 0.06),    # 0.0573 -> 0.06 (the literal n_folds=50 reading)
+    (0.0303, 0.0, 0.12),       # 0.1212 -> clamp down (the 150-problem case)
+    (0.03, 0.03, 0.12),        # 0.1697 -> clamp down
+    (0.0, 0.02, 0.08),         # sd_e alone: 0.08 exactly
 ])
-def test_width_from_sd(sd, expected):
-    assert calibrate.width_from_sd(sd) == expected
+def test_width_from_sds(sd_m, sd_e, expected):
+    assert calibrate.width_from_sds(sd_m, sd_e) == expected
 
 
-def test_width_from_sd_rejects_bad_sd():
+def test_width_from_sds_rejects_bad_sd():
     with pytest.raises(ValueError):
-        calibrate.width_from_sd(float("nan"))
+        calibrate.width_from_sds(float("nan"), 0.01)
     with pytest.raises(ValueError):
-        calibrate.width_from_sd(-0.01)
+        calibrate.width_from_sds(0.01, -0.01)
+
+
+@pytest.mark.parametrize("sd,ppf,k,secret,expected", [
+    (0.0411, 70, 10, 900, 2 * (0.0411 ** 2 * 70 / 900 + 0.0411 ** 2 / 10) ** 0.5),  # canonical at 900
+    (0.0411, 70, 10, 150, 2 * (0.0411 ** 2 * 70 / 150 + 0.0411 ** 2 / 10) ** 0.5),  # canonical at 150
+    (0.02, 70, 10, 900, 2 * 0.02 * (70 / 900 + 0.1) ** 0.5),
+    (0.0, 70, 10, 900, 0.0),
+])
+def test_interval_half_width(sd, ppf, k, secret, expected):
+    assert calibrate.interval_half_width(sd, ppf, k, secret) == pytest.approx(expected)
+
+
+def test_interval_half_width_repeats_do_not_shrink_the_estimate_term():
+    # Same sd and fold geometry: the half-width must not depend on how many
+    # times the partition was repeated (which is what a raw n_folds would do).
+    a = calibrate.interval_half_width(0.04, 70, 10, 900)
+    assert a == pytest.approx(2 * (0.04 ** 2 * 70 / 900 + 0.04 ** 2 / 10) ** 0.5)
+    assert a > 2 * 0.04 * (70 / 900) ** 0.5  # strictly wider than the measurement term alone
+
+
+def test_interval_half_width_rejects_bad_input():
+    with pytest.raises(ValueError):
+        calibrate.interval_half_width(float("nan"), 70, 10, 900)
+    with pytest.raises(ValueError):
+        calibrate.interval_half_width(0.04, 0, 10, 900)
+    with pytest.raises(ValueError):
+        calibrate.interval_half_width(0.04, 70, 10, 0)
 
 
 @pytest.mark.parametrize("bar,point,sd,expected", [
@@ -335,7 +436,7 @@ def test_tol_from_gap_sd(gap_sd, expected):
 
 def test_check_loud_failures_flags_small_leakage():
     result = {
-        "BAR": 0.62,
+        "BAR": 0.60,
         "honest_cv_prompt": 0.60,
         "leaky_row_cv_prompt": 0.65,  # gap 0.05 < 0.10
         "holdout_auroc_per_legit": {"L1": 0.70},
@@ -347,14 +448,30 @@ def test_check_loud_failures_flags_small_leakage():
 
 def test_check_loud_failures_clean_passes():
     result = {
-        "BAR": 0.62,
+        "BAR": 0.60,
         "honest_cv_prompt": 0.60,
         "leaky_row_cv_prompt": 0.75,  # gap 0.15 >= 0.10
-        "holdout_auroc_per_legit": {"L1": 0.66, "L2": 0.83},
+        "holdout_auroc_per_legit": {"L1": 0.6334, "L2": 0.83},
+        "flagship_bar_inputs": {"weak_probe_holdout_auroc": 0.5613},
         "companion_secret_auroc": 0.70,
         "companion_secret_bootstrap": {"sd": 0.03, "clears_bar_by_3sd": True},
     }
     assert calibrate.check_loud_failures(result) == []
+
+
+def test_check_loud_failures_flags_bar_not_separating():
+    result = {
+        "BAR": 0.60,
+        "honest_cv_prompt": 0.60,
+        "leaky_row_cv_prompt": 0.75,
+        "holdout_auroc_per_legit": {"L1": 0.60, "L2": 0.83},   # not strictly above
+        "flagship_bar_inputs": {"weak_probe_holdout_auroc": 0.61},  # above the bar
+        "companion_secret_auroc": 0.70,
+        "companion_secret_bootstrap": {"sd": 0.03, "clears_bar_by_3sd": True},
+    }
+    failures = calibrate.check_loud_failures(result)
+    assert any("legit L1" in f for f in failures)
+    assert any("weak probe" in f for f in failures)
 
 
 def test_check_loud_failures_flags_companion_too_close_to_its_bar():
@@ -370,30 +487,47 @@ def test_check_loud_failures_flags_companion_too_close_to_its_bar():
     assert any("BAR_companion" in f for f in failures)
 
 
+def test_check_trap_robustness_flags_thin_flagship_margin():
+    result = {
+        "WIDTH": 0.08,
+        "flagship_bar_inputs": {"margin_honest": 0.012, "margin_weak": 0.05},
+        "companion_secret_auroc": 0.66,
+        "companion_leaky_estimate": 0.78,
+        "companion_grouped_estimate": 0.65,
+        "companion_random_scores": {"auroc": 0.49, "sd": 0.01, "below_bar_by_3sd": True},
+        "companion_canonical_interval": {"lo": 0.62, "hi": 0.69, "width": 0.07, "contains": True},
+    }
+    concerns = calibrate.check_trap_robustness(result)
+    assert len(concerns) == 1 and "margin_honest" in concerns[0]
+
+
 def test_check_trap_robustness_clean_passes():
     result = {
-        "WIDTH": 0.06,
+        "WIDTH": 0.08,
+        "flagship_bar_inputs": {"margin_honest": 0.0334, "margin_weak": 0.0387},
         "companion_secret_auroc": 0.66,
-        "companion_leaky_estimate": 0.78,   # gap 0.12 > 0.06
-        "companion_grouped_estimate": 0.65,  # gap 0.01 < 0.03
+        "companion_leaky_estimate": 0.78,   # gap 0.12 > 0.08
+        "companion_grouped_estimate": 0.65,  # gap 0.01 < 0.04
         "companion_random_scores": {"auroc": 0.49, "sd": 0.01, "below_bar_by_3sd": True},
-        "companion_weak_probe": {"auroc": 0.51, "sd": 0.01, "below_bar_by_3sd": True},
+        "companion_canonical_interval": {"lo": 0.62, "hi": 0.69, "width": 0.07, "contains": True},
     }
     assert calibrate.check_trap_robustness(result) == []
 
 
 def test_check_trap_robustness_flags_every_overlap():
     result = {
-        "WIDTH": 0.12,
+        "WIDTH": 0.06,
         "companion_secret_auroc": 0.66,
-        "companion_leaky_estimate": 0.75,   # gap 0.09, not > 0.12
-        "companion_grouped_estimate": 0.59,  # gap 0.07, not < 0.06
+        "companion_leaky_estimate": 0.71,   # gap 0.05, not > 0.06
+        "companion_grouped_estimate": 0.62,  # gap 0.04, not < 0.03
         "companion_random_scores": {"auroc": 0.49, "sd": 0.03, "below_bar_by_3sd": False},
-        "companion_weak_probe": {"auroc": 0.53, "sd": 0.03, "below_bar_by_3sd": False},
+        "companion_canonical_interval": {"lo": 0.60, "hi": 0.65, "width": 0.07, "contains": False},
     }
     concerns = calibrate.check_trap_robustness(result)
-    assert len(concerns) == 4
+    assert len(concerns) == 5
     assert any("naive estimate" in c for c in concerns)
     assert any("honest estimate" in c for c in concerns)
     assert any("random scores" in c for c in concerns)
-    assert any("weak probe" in c for c in concerns)
+    assert any("does not contain" in c for c in concerns)
+    assert any("more than WIDTH" in c for c in concerns)
+    assert not any("weak probe" in c for c in concerns)

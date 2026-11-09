@@ -54,7 +54,7 @@ split you used, with `split_key` naming what the split was made on. The mean of
 `fold_aurocs` has to be within 0.01 of `auroc_estimate`. `method` is a line on how
 the probe works.
 
-Here is how we check. We measure the probe on a held-out set of 150 problems,
+Here is how we check. We measure the probe on a held-out set of 900 problems,
 four sampled answers each like your file, disjoint from the problems you have.
 The probe has to reach an AUROC of at least 0.55 there. That is a floor well
 above chance, not a target, and it says nothing about where a good probe lands,

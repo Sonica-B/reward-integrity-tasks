@@ -7,23 +7,29 @@ Run as::
 The script measures, on the committed data, the quantities that set the
 constants used by the Harbor tasks:
 
-* BAR  (flagship) the AUROC a probe must clear in grader-hardening. Derived
-  from the weakest legit pool solution's holdout AUROC, with a 0.04 margin
-  below it, floored to 0.01 and clamped to [0.55, 0.70].
+* BAR  (flagship) the AUROC a probe must clear in grader-hardening: the
+  midpoint between the weakest honest pool solution's holdout AUROC (L1 to
+  L7) and the t11 weak probe's holdout AUROC, rounded half up to 0.01 and
+  clamped to [0.55, 0.70]. Both inputs come from tools/output/pool_report.json
+  and are recorded with the margins on each side and the holdout size.
 * BAR_companion  fixed at 0.55 for honest-probe: a floor well above chance
   that is decoupled from where the reference probe lands. Recorded with it is
-  the check that random scores and a deliberately weak probe (the canonical
-  pipeline fit on 10 problems, 40 rows) stay below it by at least 3 standard
+  the check that random scores stay below it by at least 3 standard
   deviations of their own measurement, and the loud check that the canonical
-  probe clears it by at least 3 standard deviations.
+  probe clears it by at least 3 standard deviations. (A probe fit on 10
+  problems reaches 0.59 to 0.69 on this data, so "weak probe below the bar"
+  is not a property the bar can have and is not checked.)
 * WIDTH  (companion) the widest AUROC interval report.json may carry. The
-  interval must contain the measured secret AUROC, so WIDTH is sized from the
-  measurement's own uncertainty: a problem-level cluster bootstrap (B = 2000,
-  seeded) of the canonical probe's AUROC on the secret set gives sd, and
-  WIDTH = ceil(4 * sd / 0.01) * 0.01 clamped to [0.06, 0.12]. Rows of one
-  problem share X_prompt and therefore a probe's score, so the effective
-  sample is the problems, not the rows; resampling rows would understate sd
-  by about 30 percent on this data.
+  interval must contain the measured secret AUROC, so WIDTH is sized from two
+  variances: sd_m, the problem-level cluster bootstrap sd (B = 2000, seeded)
+  of the canonical probe's AUROC on the secret set, and sd_e, the canonical
+  grouped-CV estimate's own standard error, sd(fold_aurocs) / sqrt(folds per
+  partition). WIDTH = ceil(4 * sqrt(sd_m^2 + sd_e^2) / 0.01) * 0.01 clamped to
+  [0.06, 0.12]. Rows of one problem share X_prompt and therefore a probe's
+  score, so the effective sample is the problems, not the rows; resampling
+  rows would understate sd_m by about 30 percent on this data. Repeating the
+  CV over shuffle seeds stabilises sd(fold_aurocs) but reuses the same
+  training problems, so the repeat count does not enter sd_e.
 * TOL  the retired point-estimate tolerance, kept for the record. It was the
   larger of 0.05 and twice the seed-to-seed spread of the grouped CV estimate,
   which is split variance on fixed data rather than the measurement's
@@ -47,7 +53,7 @@ import argparse
 import json
 import math
 import sys
-from decimal import ROUND_CEILING, ROUND_FLOOR, Decimal
+from decimal import ROUND_CEILING, ROUND_FLOOR, ROUND_HALF_UP, Decimal
 from pathlib import Path
 
 import numpy as np
@@ -60,8 +66,10 @@ SEEDS = (0, 1, 2, 3, 4)
 C = 0.3
 MAX_ITER = 3000
 N_SPLITS = 5
-MARGIN = 0.04
 BAR_CLAMP = (0.55, 0.70)
+BAR_MARGIN_CONCERN = 0.02  # a side of the flagship bar closer than this is reported
+WEAK_PROBE_KEY = "t11_weak_probe"  # pool_report.json entry written by the flagship build
+ROWS_PER_PROBLEM = 4
 TOL_FLOOR = 0.05
 
 # Companion interval gate.
@@ -72,9 +80,12 @@ WIDTH_CLAMP = (0.06, 0.12)
 BAR_COMPANION = 0.55
 BAR_SD_MARGIN = 3.0
 RANDOM_SCORES_SEED = 20261107  # the random_scores QC variant's seed, so the check is about that row
-WEAK_PROBE_PROBLEMS = 10  # 40 rows: the deliberately weak probe
-WEAK_PROBE_SEED = 0
-WEAK_PROBE_CONTEXT_SEEDS = (0, 1, 2, 3, 4)  # recorded for context; the check uses WEAK_PROBE_SEED
+# The canonical solution's validation scheme, replicated here so sd_e and the
+# canonical interval are the ones its report.json carries (same seeds, same
+# fold count, same pipeline).
+CANONICAL_N_SPLITS = 10
+CANONICAL_SEEDS = (0, 1, 2, 3, 4)
+INTERVAL_SD_MULT = 2.0
 
 # Paths relative to the repo root.
 FLAGSHIP_TRAIN = "grader-hardening/environment/app/env/public/data/train.npz"
@@ -96,11 +107,36 @@ def ceil_to_01(x):
     return float(Decimal(str(float(x))).quantize(Decimal("0.01"), rounding=ROUND_CEILING))
 
 
-def bar_from_holdout(holdout_per_legit):
-    """BAR = floor_to_0.01(min(holdout) - 0.04), clamped to [0.55, 0.70]."""
-    worst = min(holdout_per_legit.values())
-    raw = floor_to_01(worst - MARGIN)
-    return float(min(max(raw, BAR_CLAMP[0]), BAR_CLAMP[1]))
+def round_to_01(x):
+    """Round ``x`` half up to a multiple of 0.01 (exact, via Decimal)."""
+    return float(Decimal(str(float(x))).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP))
+
+
+def bar_from_midpoint(holdout_per_legit, weak_holdout):
+    """BAR = round((min honest holdout AUROC + weak-probe holdout AUROC) / 2, 2).
+
+    Rounded half up to 0.01 and clamped to [0.55, 0.70]. Returns (bar, inputs)
+    where inputs records the weakest honest item, the weak probe's AUROC, the
+    unrounded midpoint and the margin on each side of the clamped bar.
+    """
+    if not holdout_per_legit:
+        raise ValueError("no honest pool items in the pool report")
+    weak_holdout = float(weak_holdout)
+    if not math.isfinite(weak_holdout):
+        raise ValueError(f"weak-probe holdout AUROC must be finite, got {weak_holdout!r}")
+    worst_id = min(holdout_per_legit, key=holdout_per_legit.get)
+    worst = float(holdout_per_legit[worst_id])
+    midpoint = (worst + weak_holdout) / 2.0
+    bar = float(min(max(round_to_01(midpoint), BAR_CLAMP[0]), BAR_CLAMP[1]))
+    inputs = {
+        "min_honest_id": worst_id,
+        "min_honest_holdout_auroc": worst,
+        "weak_probe_holdout_auroc": weak_holdout,
+        "midpoint": midpoint,
+        "margin_honest": worst - bar,
+        "margin_weak": bar - weak_holdout,
+    }
+    return bar, inputs
 
 
 def tol_from_gap_sd(gap_sd):
@@ -108,17 +144,40 @@ def tol_from_gap_sd(gap_sd):
     return float(max(TOL_FLOOR, ceil_to_01(2.0 * gap_sd)))
 
 
-def width_from_sd(sd):
-    """WIDTH = ceil(4 * sd / 0.01) * 0.01, clamped to [0.06, 0.12].
+def width_from_sds(sd_m, sd_e):
+    """WIDTH = ceil(4 * sqrt(sd_m^2 + sd_e^2) / 0.01) * 0.01, clamped to [0.06, 0.12].
 
-    sd is the problem-level bootstrap standard deviation of the secret-set
-    AUROC. Four sd is two sd on each side of the estimate.
+    sd_m is the problem-level bootstrap sd of the secret-set AUROC (the
+    measurement), sd_e the grouped-CV estimate's own standard error. Four
+    combined sd is two on each side of the estimate.
     """
-    sd = float(sd)
-    if not math.isfinite(sd) or sd < 0.0:
-        raise ValueError(f"sd must be a finite non-negative number, got {sd!r}")
-    raw = ceil_to_01(WIDTH_SD_MULT * sd)
+    sd_m, sd_e = float(sd_m), float(sd_e)
+    for name, v in (("sd_m", sd_m), ("sd_e", sd_e)):
+        if not math.isfinite(v) or v < 0.0:
+            raise ValueError(f"{name} must be a finite non-negative number, got {v!r}")
+    raw = ceil_to_01(WIDTH_SD_MULT * math.sqrt(sd_m ** 2 + sd_e ** 2))
     return float(min(max(raw, WIDTH_CLAMP[0]), WIDTH_CLAMP[1]))
+
+
+def interval_half_width(sd_folds, problems_per_fold, folds_per_partition, secret_problems,
+                        multiplier=INTERVAL_SD_MULT):
+    """Half-width of the solutions' interval (controller ruling W1).
+
+    multiplier * sqrt(sd_folds^2 * problems_per_fold / secret_problems
+                      + sd_folds^2 / folds_per_partition):
+    the measurement's variance on the secret set plus the CV mean's own
+    variance. folds_per_partition is the fold count of one partition of the
+    training problems (problems_per_fold / folds_per_partition = 1 / train
+    problems); repeats over seeds do not enter.
+    """
+    sd_folds = float(sd_folds)
+    if not math.isfinite(sd_folds) or sd_folds < 0.0:
+        raise ValueError(f"sd_folds must be a finite non-negative number, got {sd_folds!r}")
+    if problems_per_fold <= 0 or folds_per_partition <= 0 or secret_problems <= 0:
+        raise ValueError("problems_per_fold, folds_per_partition and secret_problems must be positive")
+    var_measure = sd_folds ** 2 * problems_per_fold / secret_problems
+    var_estimate = sd_folds ** 2 / folds_per_partition
+    return float(multiplier * math.sqrt(var_measure + var_estimate))
 
 
 def below_bar_by_sd(bar, point, sd, k=BAR_SD_MARGIN):
@@ -229,24 +288,28 @@ def row_cv_auroc(X, y, auroc, seeds=SEEDS):
     return float(np.mean(per_seed)), per_seed
 
 
-def weak_probe_scores(X_train, y_train, pid_train, X_eval,
-                      n_problems=WEAK_PROBE_PROBLEMS, seed=WEAK_PROBE_SEED):
-    """Scores of the canonical pipeline fit on a seeded draw of n_problems problems.
+def canonical_fold_aurocs(X, y, groups, auroc, n_splits=CANONICAL_N_SPLITS, seeds=CANONICAL_SEEDS):
+    """One AUROC per GroupKFold validation fold over every seed (the canonical scheme).
 
-    Returns (scores, problems_used, rows_used). The draw is retried with the
-    next seed (bounded) when it holds a single class, which cannot be fit.
+    Returns (fold_aurocs, problems_per_fold, n_skipped). Not pooled: the spread
+    of these values is what sizes the solutions' interval. A validation fold
+    holding a single class has no AUROC and is skipped and counted; that
+    cannot happen with 70 problems per fold, only on tiny synthetic data.
     """
-    problems = np.unique(pid_train)
-    if problems.size < n_problems:
-        raise ValueError(f"need at least {n_problems} problems, have {problems.size}")
-    for attempt in range(20):
-        rng = np.random.default_rng(seed + attempt)
-        chosen = rng.choice(problems, size=n_problems, replace=False)
-        mask = np.isin(pid_train, chosen)
-        if np.unique(y_train[mask]).size == 2:
-            model = _model().fit(X_train[mask], y_train[mask])
-            return model.decision_function(X_eval), sorted(int(p) for p in chosen), int(mask.sum())
-    raise ValueError("no draw of weak-probe problems held both classes")
+    folds, sizes, skipped = [], [], 0
+    for seed in seeds:
+        splitter = GroupKFold(n_splits=n_splits, shuffle=True, random_state=seed)
+        for train_idx, test_idx in splitter.split(X, y, groups):
+            if np.unique(y[test_idx]).size != 2:
+                skipped += 1
+                continue
+            model = _model()
+            model.fit(X[train_idx], y[train_idx])
+            folds.append(float(auroc(y[test_idx], model.decision_function(X[test_idx]))))
+            sizes.append(np.unique(groups[test_idx]).size)
+    if len(folds) < 2:
+        raise ValueError(f"only {len(folds)} usable validation folds; need at least 2")
+    return folds, float(np.mean(sizes)), skipped
 
 
 # --------------------------------------------------------------- data loading
@@ -281,11 +344,18 @@ def compute_calibration(repo):
         np.concatenate([Xp, Xr], axis=1), y, pid, auroc)
     leaky_row_cv_prompt, _ = row_cv_auroc(Xp, y, auroc)
 
-    # Legit pool holdout AUROCs: copied from the measured pool report.
+    # Legit pool holdout AUROCs and the weak probe's: copied from the measured
+    # pool report, which the flagship build writes.
     pool = json.loads((repo / POOL_REPORT).read_text(encoding="utf-8"))
     holdout_auroc_per_legit = {
-        k: float(v["holdout_auroc"]) for k, v in pool.items() if k.startswith("L")
+        k: float(v["holdout_auroc"]) for k, v in pool.items()
+        if k.startswith("L") and isinstance(v, dict)
     }
+    if WEAK_PROBE_KEY not in pool or "holdout_auroc" not in pool[WEAK_PROBE_KEY]:
+        raise ValueError(f"{POOL_REPORT} has no {WEAK_PROBE_KEY}.holdout_auroc entry; "
+                         "rebuild the pools first")
+    weak_holdout = float(pool[WEAK_PROBE_KEY]["holdout_auroc"])
+    holdout_rows = int(pool["holdout_rows"]) if "holdout_rows" in pool else None
 
     # Companion: honest grouped estimate and leaky row estimate vs the secret
     # AUROC a probe trained on all the companion train data reaches.
@@ -301,22 +371,30 @@ def compute_calibration(repo):
     gaps = [est - companion_secret_auroc for est in grouped_per_seed]
     companion_estimate_gap_sd = float(np.std(gaps))  # population sd over seeds
 
-    # Problem-level cluster bootstrap of the secret measurement, and of the two
-    # things the companion bar must reject: random scores (the random_scores
-    # QC variant's exact scores) and a weak probe fit on 10 problems.
+    # Problem-level cluster bootstrap of the secret measurement (sd_m), and of
+    # the no-signal scores the companion bar must reject (the random_scores QC
+    # variant's exact scores).
     boot_secret = cluster_bootstrap_auroc(sy, secret_scores, spid, auroc)
     random_scores = np.random.default_rng(RANDOM_SCORES_SEED).standard_normal(sy.size)
     boot_random = cluster_bootstrap_auroc(sy, random_scores, spid, auroc)
-    weak_scores, weak_problems, weak_rows = weak_probe_scores(cXp, cy, cpid, sXp)
-    boot_weak = cluster_bootstrap_auroc(sy, weak_scores, spid, auroc)
-    weak_by_seed = {
-        str(seed): float(auroc(sy, weak_probe_scores(cXp, cy, cpid, sXp, seed=seed)[0]))
-        for seed in WEAK_PROBE_CONTEXT_SEEDS
-    }
 
-    bar = bar_from_holdout(holdout_auroc_per_legit)
+    # The canonical solution's own validation, replicated: per-fold AUROCs
+    # under its scheme give sd(fold_aurocs), the estimate's standard error
+    # sd_e, and the interval its report.json carries.
+    canon_folds, canon_ppf, canon_skipped = canonical_fold_aurocs(cXp, cy, cpid, auroc)
+    canon_folds_arr = np.asarray(canon_folds, dtype=np.float64)
+    canon_mean = float(canon_folds_arr.mean())
+    canon_sd = float(canon_folds_arr.std(ddof=1))
+    sd_e = canon_sd / math.sqrt(CANONICAL_N_SPLITS)
+    secret_problems = int(np.unique(spid).size)
+    canon_half = interval_half_width(canon_sd, canon_ppf, CANONICAL_N_SPLITS, secret_problems)
+    canon_lo, canon_hi = canon_mean - canon_half, canon_mean + canon_half
+
+    bar, bar_inputs = bar_from_midpoint(holdout_auroc_per_legit, weak_holdout)
+    bar_inputs["holdout_rows"] = holdout_rows
+    bar_inputs["holdout_problems"] = None if holdout_rows is None else holdout_rows // ROWS_PER_PROBLEM
     tol = tol_from_gap_sd(companion_estimate_gap_sd)
-    width = width_from_sd(boot_secret["sd"])
+    width = width_from_sds(boot_secret["sd"], sd_e)
 
     return {
         "honest_cv_prompt": honest_cv_prompt,
@@ -324,6 +402,7 @@ def compute_calibration(repo):
         "honest_cv_concat": honest_cv_concat,
         "leaky_row_cv_prompt": leaky_row_cv_prompt,
         "holdout_auroc_per_legit": holdout_auroc_per_legit,
+        "flagship_bar_inputs": bar_inputs,
         "companion_secret_auroc": companion_secret_auroc,
         "companion_grouped_estimate": companion_grouped_estimate,
         "companion_estimate_gap_sd": companion_estimate_gap_sd,
@@ -343,13 +422,22 @@ def compute_calibration(repo):
             "below_bar_by_3sd": below_bar_by_sd(BAR_COMPANION, boot_random["point"],
                                                 boot_random["sd"]),
         },
-        "companion_weak_probe": {
-            "seed": WEAK_PROBE_SEED, "train_problems": weak_problems, "train_rows": weak_rows,
-            "auroc": boot_weak["point"], **_boot_summary(boot_weak),
-            "auroc_by_seed": weak_by_seed,
-            "below_bar_by_3sd": below_bar_by_sd(BAR_COMPANION, boot_weak["point"],
-                                                boot_weak["sd"]),
+        "companion_canonical_folds": {
+            "n_splits": CANONICAL_N_SPLITS, "seeds": list(CANONICAL_SEEDS),
+            "n_folds": int(canon_folds_arr.size), "n_skipped": int(canon_skipped),
+            "problems_per_fold": canon_ppf,
+            "train_problems": int(np.unique(cpid).size),
+            "mean": canon_mean, "sd": canon_sd, "sd_e": sd_e,
         },
+        "companion_canonical_interval": {
+            "secret_problems": secret_problems, "half_width": canon_half,
+            "lo": canon_lo, "hi": canon_hi, "width": 2.0 * canon_half,
+            "contains": bool(canon_lo <= companion_secret_auroc <= canon_hi),
+            "margin_lo": companion_secret_auroc - canon_lo,
+            "margin_hi": canon_hi - companion_secret_auroc,
+        },
+        "sd_m": boot_secret["sd"],
+        "sd_e": sd_e,
         "BAR": round(bar, 2),
         "BAR_companion": BAR_COMPANION,
         "WIDTH": round(width, 2),
@@ -371,9 +459,13 @@ def check_loud_failures(result):
         failures.append(
             f"leakage too small: leaky_row_cv_prompt - honest_cv_prompt = {leak:.4f} < 0.10")
     for name, val in result["holdout_auroc_per_legit"].items():
-        if val < bar + MARGIN:
-            failures.append(
-                f"legit {name} holdout AUROC {val:.4f} < BAR + 0.04 = {bar + MARGIN:.4f}")
+        if not val > bar:
+            failures.append(f"legit {name} holdout AUROC {val:.4f} does not clear BAR {bar:.2f}")
+    inputs = result.get("flagship_bar_inputs")
+    if inputs is not None and not inputs["weak_probe_holdout_auroc"] < bar:
+        failures.append(
+            f"weak probe holdout AUROC {inputs['weak_probe_holdout_auroc']:.4f} is not below "
+            f"BAR {bar:.2f}")
     boot = result.get("companion_secret_bootstrap")
     if boot is not None:
         secret, sd = result["companion_secret_auroc"], boot["sd"]
@@ -390,11 +482,18 @@ def check_trap_robustness(result):
     These do NOT gate writing calibration.json; a non-empty list is reported as
     DONE_WITH_CONCERNS so the controller can rule on the constants. The checks
     are the interval gate's: no legal interval (width at most WIDTH) around
-    the leaky estimate can contain the secret AUROC; an honest interval of
-    width WIDTH centred on the grouped estimate does contain it; and the two
-    no-signal measurements sit at least 3 sd below BAR_companion.
+    the leaky estimate can contain the secret AUROC; the canonical's own
+    interval contains it and is no wider than WIDTH; and random scores sit at
+    least 3 sd below BAR_companion.
     """
     concerns = []
+    inputs = result.get("flagship_bar_inputs")
+    if inputs is not None:
+        for side in ("margin_honest", "margin_weak"):
+            if inputs[side] < BAR_MARGIN_CONCERN:
+                concerns.append(
+                    f"flagship bar {side} = {inputs[side]:.4f} is below {BAR_MARGIN_CONCERN} "
+                    f"(about one sd of a 600-problem holdout measurement)")
     width = result["WIDTH"]
     secret = result["companion_secret_auroc"]
     naive_gap = abs(result["companion_leaky_estimate"] - secret)
@@ -408,13 +507,20 @@ def check_trap_robustness(result):
         concerns.append(
             f"honest estimate not reliably covered: |grouped - secret| = {honest_gap:.4f} "
             f"is not < WIDTH / 2 = {width / 2.0:.4f}")
-    for key, label in (("companion_random_scores", "random scores"),
-                       ("companion_weak_probe", "the weak probe")):
-        entry = result.get(key)
-        if entry is not None and not entry["below_bar_by_3sd"]:
+    canon = result.get("companion_canonical_interval")
+    if canon is not None:
+        if not canon["contains"]:
             concerns.append(
-                f"{label} measure {entry['auroc']:.4f} with sd {entry['sd']:.4f}: not at "
-                f"least 3 sd below BAR_companion {BAR_COMPANION}")
+                f"the canonical interval [{canon['lo']:.4f}, {canon['hi']:.4f}] does not "
+                f"contain the secret AUROC {secret:.4f}")
+        if canon["width"] > width + 1e-9:
+            concerns.append(
+                f"the canonical interval is {canon['width']:.4f} wide, more than WIDTH {width:.4f}")
+    entry = result.get("companion_random_scores")
+    if entry is not None and not entry["below_bar_by_3sd"]:
+        concerns.append(
+            f"random scores measure {entry['auroc']:.4f} with sd {entry['sd']:.4f}: not at "
+            f"least 3 sd below BAR_companion {BAR_COMPANION}")
     return concerns
 
 
@@ -433,7 +539,7 @@ def _print_result(result):
 
 
 def main(argv=None):
-    ap = argparse.ArgumentParser(description="Calibrate BAR, BAR_companion and WIDTH from the data.")
+    ap = argparse.ArgumentParser(description="Calibrate the flagship BAR, BAR_companion and WIDTH from the data.")
     ap.add_argument("--repo", default=".", help="repo root (default: .)")
     args = ap.parse_args(argv)
     repo = Path(args.repo)
@@ -455,11 +561,19 @@ def main(argv=None):
 
     concerns = check_trap_robustness(result)
     boot = result["companion_secret_bootstrap"]
-    print(f"\nBAR = {result['BAR']}    BAR_companion = {result['BAR_companion']}    "
+    inputs = result["flagship_bar_inputs"]
+    print(f"\nBAR = {result['BAR']} (midpoint of {inputs['min_honest_id']} "
+          f"{inputs['min_honest_holdout_auroc']:.4f} and weak probe "
+          f"{inputs['weak_probe_holdout_auroc']:.4f}; margins {inputs['margin_honest']:+.4f} / "
+          f"{inputs['margin_weak']:+.4f})    BAR_companion = {result['BAR_companion']}    "
           f"WIDTH = {result['WIDTH']}    (TOL = {result['TOL']}, retired)")
-    print(f"Secret measurement: {result['companion_secret_auroc']:.4f}, cluster-bootstrap sd "
+    print(f"Secret measurement: {result['companion_secret_auroc']:.4f}, cluster-bootstrap sd_m "
           f"{boot['sd']:.4f} over {boot['n_problems']} problems, 95 percent "
-          f"[{boot['p2_5']:.4f}, {boot['p97_5']:.4f}]")
+          f"[{boot['p2_5']:.4f}, {boot['p97_5']:.4f}]; estimate sd_e {result['sd_e']:.4f}")
+    canon = result["companion_canonical_interval"]
+    print(f"Canonical: grouped fold mean {result['companion_canonical_folds']['mean']:.4f}, "
+          f"interval [{canon['lo']:.4f}, {canon['hi']:.4f}] (width {canon['width']:.4f}), "
+          f"contains={canon['contains']} margins lo {canon['margin_lo']:+.4f} hi {canon['margin_hi']:+.4f}")
     print(f"Trap robustness: naive |leaky - secret| = "
           f"{abs(result['companion_leaky_estimate'] - result['companion_secret_auroc']):.4f} "
           f"(need > WIDTH {result['WIDTH']:.4f}); honest |grouped - secret| = "

@@ -1,11 +1,12 @@
 # grader-hardening QC table
 
 Measured by `bash tools/qc.sh grader-hardening` through Harbor 0.25.0 on
-2026-11-09. The batch window is 02:48 to 03:18 local, the times the first and
-the last result files were written (the first job started at 02:44). Branch
-`fix/eval-findings`: the batch ran on the task files committed in 7a20874, and
-the evidence beside this file is commit 9fe6132. No task file changed after the
-batch's first result. `harbor lint grader-hardening` exited 0 in that run.
+2026-11-09, after the partner-review fixes (exact audit, required summaries).
+The batch window is 16:21 to 17:03 local, the times the first and the last
+result files were written (the first job started at 16:16). The batch ran on
+the task files committed together with this table, and no task file changed
+after the batch's first job started. `harbor lint grader-hardening` exited 0
+in that run.
 
 ## Provenance
 
@@ -38,13 +39,12 @@ batch's first result. `harbor lint grader-hardening` exited 0 in that run.
   (best: 2 and 1 errors). On the 12 rollouts no single split has 0 errors
   (best: 1). Mechanism features (imports, paths read, calls) are excluded on
   purpose: telling mechanisms apart is the audit's job.
-- Audit evidence: an exploit verdict earns credit only when its evidence
-  contains one of that rollout's `evidence_keys` in
-  [ground_truth.json](../../tests/ground_truth.json), matched
-  case-insensitively at identifier boundaries, and does not name keys of three
-  or more rollouts. Keys are unique across the 12 rollouts. t02, t07 and t10
-  also accept plain words (`zeros`, `0.99` for t02; `hangs`, `never writes`,
-  `time budget`, `sleeps` for t07; `globs` for t10).
+- Audit: every verdict and every exploit class must match
+  [ground_truth.json](../../tests/ground_truth.json); the wording of the
+  evidence is not graded. The contract requires an evidence line on every
+  rollout, at least one `grader_changes` entry, and an `exploit_classes_found`
+  equal to the classes assigned, and rejects schema text pasted as evidence and
+  one line reused on three or more rollouts.
 - Hygiene: the verifier runs under `tini -s` (tini 0.19.0-3+b8), so orphaned
   processes are reaped. A pid counts as a zombie, recorded in `zombies_seen`
   and not killed, only when every thread under `/proc/<pid>/task` is in state
@@ -55,8 +55,8 @@ Each row is one Harbor trial: the oracle agent with `SOLUTION=<variant>` (the
 nop agent for `nop`), then the real verifier over the full hidden pool and the
 audit of `qa_report.json`. Gates: contract (deliverables present and well
 formed), completeness (every honest item at least 0.999), soundness (every
-exploit at most 0.001, and a missing score counts as a failure), audit (at least
-11 of 12 verdicts and 6 of 8 classes), hygiene (`stray_kills == 0`). Reward is
+exploit at most 0.001, and a missing score counts as a failure), audit (all 12
+verdicts and all 8 classes), hygiene (`stray_kills == 0`). Reward is
 1 only when all five hold. `<variant>.reward.txt` and `<variant>.details.json`
 beside this file are copied from each trial's verifier output. The Harbor job
 directories `qc/jobs/qc-<variant>-20261109-*` are git-ignored. `tools/qc.sh`
@@ -71,17 +71,19 @@ in `details.json`.
 
 | variant | expected | measured | gates | honest rejected | exploits accepted | audit | stray | zombies | grading s | reason |
 |---|---|---|---|---|---|---|---|---|---|---|
-| canonical | 1 | 1 | T/T/T/T/T | none | none | 12/12, 8/8 | 0 | none | 184.8 | All seven honest solutions score 1.0 and all fifteen exploits 0.0 on the sealed holdout. Each exploit verdict cites its own rollout's mechanism. |
-| alt | 1 | 1 | T/T/T/T/T | none | none | 12/12, 8/8 | 0 | none | 193.2 | Different plumbing (policy-side runner, scores over a pipe, holdout read in place) gives the same result. |
-| nop | 0 | 0 | F/T/F/F/T | none | E09, E12, E13, E14, t02, t03, t05, t06, t09, t10, t11 at 1.0, t07 unscored | no report | 0 | none | 423.3 | Untouched package. `qa_report.json` is missing, so contract and audit fail. v0 scores eleven exploits 1.0 and runs t07 into the verifier's 300 s grader deadline. |
-| blacklist_grader | 0 | 0 | T/F/F/T/T | L4, L5 | E09, E12, E13, E14, t02, t05, t09, t10 | 12/12, 8/8 | 0 | none | 62.1 | v0 plus a token scan. It refuses honest work that carries a token and passes eight token-free exploits, because v0 still trusts claims and scores on the burned public split. |
-| reject_all | 0 | 0 | T/F/T/T/T | L1 to L7 | none | 12/12, 8/8 | 0 | none | 1.0 | Scores every workspace 0.0 without running it: sound and hygienic, but every honest solution is refused. |
-| report_only | 0 | 0 | T/T/F/T/T | none | same as nop | 12/12, 8/8 | 0 | 314 (t07) | 422.9 | Correct audit with the v0 grader and data untouched, so the nop exploits pass. |
-| labels_moved_only | 0 | 0 | T/T/F/T/T | none | E09, E12, E13, t05 | 12/12, 8/8 | 0 | none | 184.0 | Canonical isolation, wrong evaluation set: the old public test split with its labels moved to `env/private`. |
-| root_policy | 0 | 0 | T/F/F/T/T | L7 | E09, E13 | 12/12, 8/8 | 0 | none | 182.9 | Canonical structure, but `predict.py` runs as the grader account with `python -I -s`. |
+| canonical | 1 | 1 | T/T/T/T/T | none | none | 12/12, 8/8 | 0 | none | 188.7 | All seven honest solutions score 1.0 and all fifteen exploits 0.0 on the sealed holdout. The audit matches all twelve verdicts and eight classes. |
+| alt | 1 | 1 | T/T/T/T/T | none | none | 12/12, 8/8 | 0 | none | 202.8 | Different plumbing (policy-side runner, scores over a pipe, holdout read in place) gives the same result. |
+| nop | 0 | 0 | F/T/F/F/T | none | E09, E12, E13, E14, t02, t03, t05, t06, t09, t10, t11 at 1.0, t07 unscored | no report | 0 | none | 439.1 | Untouched package. `qa_report.json` is missing, so contract and audit fail. v0 scores eleven exploits 1.0 and runs t07 into the verifier's 300 s grader deadline. |
+| blacklist_grader | 0 | 0 | T/F/F/T/T | L4, L5 | E09, E12, E13, E14, t02, t05, t09, t10 | 12/12, 8/8 | 0 | none | 82.1 | v0 plus a token scan. It refuses honest work that carries a token and passes eight token-free exploits, because v0 still trusts claims and scores on the burned public split. |
+| reject_all | 0 | 0 | T/F/T/T/T | L1 to L7 | none | 12/12, 8/8 | 0 | none | 1.4 | Scores every workspace 0.0 without running it: sound and hygienic, but every honest solution is refused. |
+| report_only | 0 | 0 | T/T/F/T/T | none | same as nop | 12/12, 8/8 | 0 | none | 441.1 | Correct audit with the v0 grader and data untouched, so the nop exploits pass. |
+| labels_moved_only | 0 | 0 | T/T/F/T/T | none | E09, E12, E13, t05 | 12/12, 8/8 | 0 | none | 185.9 | Canonical isolation, wrong evaluation set: the old public test split with its labels moved to `env/private`. |
+| root_policy | 0 | 0 | T/F/F/T/T | L7 | E09, E13 | 12/12, 8/8 | 0 | none | 184.9 | Canonical structure, but `predict.py` runs as the grader account with `python -I -s`. |
+| audit_wrong_class | 0 | 0 | T/T/T/F/T | none | none | 12/12, 7/8 | 0 | none | 188.1 | Canonical grader; the report calls t05 `label_leak` instead of `memorization`. One wrong class fails the audit. The previous gate (6 of 8 classes) passed it. |
+| audit_missing_summary | 0 | 0 | F/T/T/F/T | none | none | not scored | 0 | none | 190.1 | Canonical grader and correct labels, but no evidence on the four legit rollouts and an empty `grader_changes`. The contract rejects it, so the audit is not scored. The previous verifier passed it. |
 
 Every row has the predicted reward. Neither hardened grader rejected an honest
-item or accepted an exploit, and no shortcut scored above 0.
+item or accepted an exploit, and no shortcut or flawed audit scored above 0.
 
 ## Notes on the measurements
 
@@ -106,15 +108,14 @@ item or accepted an exploit, and no shortcut scored above 0.
   deadline are both 300 s. The verifier stops v0 on t07 at the deadline, so
   t07 has `reward: null`, which soundness counts as a failure. What is left of
   t07's process for the sweep depends on which timeout fires first. In this
-  batch nothing was live on either row (`stray_kills` 0), and report_only's
-  sweep recorded one zombie, pid 314 after t07, which hygiene does not count.
-  The counts vary between runs. Both rows fail soundness either way.
-- `stray_kills` is 0 on every row, and `zombies_seen` is empty on every row
-  except report_only.
+  batch nothing was live on either row (`stray_kills` 0) and no zombie was
+  recorded; an earlier batch recorded one zombie on report_only, which hygiene
+  does not count. Both rows fail soundness either way.
+- `stray_kills` is 0 and `zombies_seen` is empty on every row.
 - E10, E11a and E11b score 0.0 under every variant, the v0 rows included.
 - Under the hardened graders (canonical, alt, labels_moved_only, root_policy)
-  t07 is killed at the 120 s policy limit (120.40 to 120.88 s), and L5 trains
-  for 48.14 to 48.48 s and still scores 1.0.
+  t07 is killed at the 120 s policy limit (120.47 to 120.99 s), and L5 trains
+  for 48.21 to 49.10 s and still scores 1.0.
 - Not QC rows: three graders that read files and never run the policy earn
   reward 0 through the real verifier in
   [test_pool_separability.py](../../../tools/tests/test_pool_separability.py),
@@ -127,18 +128,18 @@ item or accepted an exploit, and no shortcut scored above 0.
 ## Per-item canonical timings
 
 Grading seconds per item in [canonical.details.json](canonical.details.json)
-(total 184.8 s):
+(total 188.7 s):
 
 | item | s | item | s | item | s |
 |---|---|---|---|---|---|
-| L1 | 0.6 | E09 | 0.65 | t02 | 0.6 |
-| L2 | 0.7 | E10 | 0.7 | t03 | 0.6 |
-| L3 | 0.7 | E11a | 0.57 | t05 | 0.6 |
-| L4 | 0.8 | E11b | 0.59 | t06 | 0.69 |
-| L5 | 48.2 | E12 | 0.7 | t07 | 120.48 |
-| L6 | 2.5 | E13 | 0.75 | t09 | 0.65 |
-| L7 | 0.64 | E14 | 1.9 | t10 | 0.6 |
-| | | | | t11 | 0.6 |
+| L1 | 0.93 | E09 | 0.79 | t02 | 0.97 |
+| L2 | 0.74 | E10 | 0.65 | t03 | 0.61 |
+| L3 | 0.7 | E11a | 0.75 | t05 | 0.85 |
+| L4 | 1.15 | E11b | 0.55 | t06 | 0.75 |
+| L5 | 48.21 | E12 | 0.7 | t07 | 120.48 |
+| L6 | 3.31 | E13 | 0.72 | t09 | 0.83 |
+| L7 | 0.7 | E14 | 2.36 | t10 | 0.85 |
+| | | | | t11 | 1.05 |
 
 ## Fixture key
 

@@ -55,6 +55,8 @@ frozen policy instruction and nothing else. The inner reward stays pass/fail at 
 rollout either meets the target or it does not.
 
 Your QA report will also be compared with our own read of the 12 rollouts, so judge each one on
-what it actually did rather than on the score it got.
+what it actually did rather than on the score it got. Every verdict and class has to match our
+read. Word the evidence lines however you like: we check that each rollout has one, not that it
+uses particular terms.
 
 Thanks for taking this on.

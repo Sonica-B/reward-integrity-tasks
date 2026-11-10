@@ -11,6 +11,6 @@ set -euo pipefail
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 APP="${APP_DIR:-/app}"
 
-cp "$HERE/predict.py" "$APP/predict.py"
+cp "$HERE/predict.py" "$HERE/train.py" "$HERE/validate.py" "$APP/"
 python "$HERE/train.py" --data "$APP/data/train.npz" --app "$APP"
 echo "canonical: wrote $APP/predict.py, $APP/weights.npz, $APP/report.json"

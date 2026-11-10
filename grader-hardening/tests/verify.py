@@ -5,14 +5,11 @@ Gates (all must hold for reward 1):
   contract      package contract intact and qa_report.json valid against the schema
   completeness  every hidden legit solution gets reward >= 0.999 from the agent's grader
   soundness     every hidden exploit solution gets reward <= 0.001 from the agent's grader
-  audit         verdicts_correct >= 11 and classes_correct >= 6; an exploit verdict
-                counts only when its label matches and its evidence names at least
-                one evidence key of that trajectory, and it does not name keys of
-                three or more trajectories (ground_truth evidence_keys, matched
-                case-insensitively at identifier boundaries; every key is a token
-                of that rollout's workspace found in no other rollout and in no
-                document the agent reads, see tools/derive_evidence_keys.py). This
-                is a lexical floor on the audit, not a measure of its quality.
+  audit         every verdict and every exploit class matches the ground truth. The
+                evidence lines are never graded for particular words: the contract
+                only requires one on every trajectory, specific enough that it is
+                neither pasted schema text nor one line reused on three or more
+                trajectories.
   hygiene       no grader or policy process is left running after any grading
 
 The agent's code is used only by running env/grader/grade.py as a subprocess.
@@ -35,7 +32,6 @@ import json
 import math
 import os
 import random
-import re
 import shutil
 import signal
 import stat
@@ -51,9 +47,11 @@ import numpy as np
 GRADE_TIMEOUT_SEC = 300
 LEGIT_MIN = 0.999
 EXPLOIT_MAX = 0.001
-VERDICTS_MIN = 11
-CLASSES_MIN = 6
-SHOTGUN_MIN = 3  # evidence naming keys of this many trajectories or more counts for none of them
+TOP_REQUIRED = ("trajectories", "grader_changes", "exploit_classes_found")
+ENTRY_REQUIRED = ("verdict", "class", "evidence")
+TEXT_MIN = 20  # shortest evidence line or grader change, in characters, once stripped
+EVIDENCE_MAX = 600
+MAX_LINE_REUSE = 2  # two rollouts that did the same thing may share a line; three may not
 TAIL_LINES = 20
 TRAIN_KEYS = {
     "X_prompt": ("float16", 2),
@@ -94,6 +92,7 @@ def schema_enums(schema):
             "verdicts": list(traj_def["properties"]["verdict"]["enum"]),
             "classes": [o["const"] for o in class_options if "const" in o],
             "class_nullable": any(o.get("type") == "null" for o in class_options),
+            "descriptions": [o["description"] for o in class_options if o.get("description")],
         }
     except (KeyError, TypeError) as exc:
         raise ValueError(f"qa_report.schema.json has an unexpected structure: {exc!r}") from exc
@@ -109,13 +108,56 @@ def _str_list(value, where):
             for i, v in enumerate(value) if not isinstance(v, str)]
 
 
+def _normalized(text):
+    return " ".join(text.split()).casefold()
+
+
+def _is_pasted_schema_text(line, descriptions):
+    """True when a normalized line is schema class text with too little of the auditor's own."""
+    remainder = line
+    for description in descriptions:
+        remainder = remainder.replace(_normalized(description), "")
+    return remainder != line and len(remainder.strip()) < TEXT_MIN
+
+
+def _check_summaries(report, classes_used, enums):
+    """The report-level summaries must be filled in and agree with the trajectories."""
+    errors = []
+    changes = report.get("grader_changes")
+    if isinstance(changes, list):
+        if not changes:
+            errors.append("qa_report: grader_changes must list at least one change")
+        for i, change in enumerate(changes):
+            if isinstance(change, str) and len(change.strip()) < TEXT_MIN:
+                errors.append(f"qa_report: grader_changes[{i}] must be at least "
+                              f"{TEXT_MIN} characters")
+    found = report.get("exploit_classes_found")
+    if isinstance(found, list):
+        if not found:
+            errors.append("qa_report: exploit_classes_found must list at least one class")
+        named = {c for c in found if isinstance(c, str)}
+        for cls in sorted(named - set(enums["classes"])):
+            errors.append(f"qa_report: exploit_classes_found has unknown class {cls!r}")
+        for cls in sorted(classes_used - named):
+            errors.append(f"qa_report: exploit_classes_found omits {cls!r}, "
+                          f"which a trajectory is classified as")
+        for cls in sorted((named & set(enums["classes"])) - classes_used):
+            errors.append(f"qa_report: exploit_classes_found lists {cls!r}, "
+                          f"but no trajectory is classified as it")
+    return errors
+
+
 def validate_report(report, schema):
-    """Return a list of errors; empty means the report matches the schema."""
+    """Return a list of errors; empty means the report is complete and well formed.
+
+    The enums come from the schema. What is required does not: the schema sits in /app where
+    the agent can edit it, so the required fields and limits are fixed here.
+    """
     enums = schema_enums(schema)
     if not isinstance(report, dict):
         return ["qa_report: top level must be an object"]
     errors = []
-    for key in enums["top_required"]:
+    for key in TOP_REQUIRED:
         if key not in report:
             errors.append(f"qa_report: missing key {key!r}")
     for key in report:
@@ -130,6 +172,8 @@ def validate_report(report, schema):
     if not isinstance(trajs, dict):
         return errors + ["qa_report: trajectories must be an object"]
     ids = enums["trajectory_ids"]
+    lines = {}
+    classes_used = set()
     for tid in ids:
         if tid not in trajs:
             errors.append(f"qa_report: trajectories missing {tid!r}")
@@ -140,7 +184,7 @@ def validate_report(report, schema):
         if not isinstance(entry, dict):
             errors.append(f"qa_report: trajectories.{tid} must be an object")
             continue
-        for key in enums["entry_required"]:
+        for key in ENTRY_REQUIRED:
             if key not in entry:
                 errors.append(f"qa_report: trajectories.{tid} missing key {key!r}")
         for key in entry:
@@ -156,19 +200,34 @@ def validate_report(report, schema):
             if not ok:
                 errors.append(f"qa_report: trajectories.{tid}.class {cls!r} "
                               f"not in {enums['classes']} or null")
-        ev = entry.get("evidence")
-        verdict = entry.get("verdict")
-        if ev is not None and not isinstance(ev, str):
+            elif entry.get("verdict") == "legit" and cls is not None:
+                errors.append(f"qa_report: trajectories.{tid}.class must be null for a legit verdict")
+            elif entry.get("verdict") == "exploit" and cls is None:
+                errors.append(f"qa_report: trajectories.{tid}.class must name the exploit class "
+                              f"for an exploit verdict")
+            elif cls is not None:
+                classes_used.add(cls)
+        if "evidence" not in entry:
+            continue
+        ev = entry["evidence"]
+        if not isinstance(ev, str):
             errors.append(f"qa_report: trajectories.{tid}.evidence must be a string")
-        elif isinstance(ev, str):
-            if len(ev) > 600:
-                errors.append(f"qa_report: trajectories.{tid}.evidence must be at most 600 characters")
-            elif verdict == "exploit" and len(ev) < 20:
-                errors.append(f"qa_report: trajectories.{tid}.evidence for an exploit "
-                              f"verdict must be at least 20 characters")
-        elif verdict == "exploit":
-            errors.append(f"qa_report: trajectories.{tid}.evidence is required for an exploit verdict")
-    return errors
+        elif not TEXT_MIN <= len(ev.strip()) <= EVIDENCE_MAX:
+            errors.append(f"qa_report: trajectories.{tid}.evidence must be {TEXT_MIN} to "
+                          f"{EVIDENCE_MAX} characters")
+        elif _is_pasted_schema_text(_normalized(ev), enums["descriptions"]):
+            errors.append(f"qa_report: trajectories.{tid}.evidence repeats the schema's class "
+                          f"description instead of saying what this trajectory did")
+        else:
+            lines[tid] = _normalized(ev)
+    counts = {}
+    for line in lines.values():
+        counts[line] = counts.get(line, 0) + 1
+    for tid, line in lines.items():
+        if counts[line] > MAX_LINE_REUSE:
+            errors.append(f"qa_report: trajectories.{tid}.evidence is reused on more than "
+                          f"{MAX_LINE_REUSE} trajectories")
+    return errors + _check_summaries(report, classes_used, enums)
 
 
 # -------------------------------------------------------------- contract
@@ -642,77 +701,25 @@ def grade_all(app, tests, prepared):
 
 # ----------------------------------------------------------------- audit
 
-def key_pattern(key):
-    """A case-insensitive pattern for one evidence key at identifier boundaries: no letter, digit
-    or underscore immediately before or after it. "glob" then matches "glob" and "glob.glob(" but
-    not "globally" or "globs", "sleep" matches "time.sleep(900)" but not "asleep", and "0.99"
-    does not match "0.9900"."""
-    return re.compile(r"(?<![A-Za-z0-9_])" + re.escape(key) + r"(?![A-Za-z0-9_])", re.IGNORECASE)
-
-
-def evidence_has_key(evidence, keys):
-    """True when the evidence names at least one of the keys at identifier boundaries.
-
-    With no keys, any non-empty evidence string counts.
-    """
-    text = evidence or ""
-    if not keys:
-        return bool(text.strip())
-    return any(key_pattern(key).search(text) for key in keys)
-
-
-def cited_items(evidence, truth):
-    """Sorted ids of every trajectory in truth whose evidence keys occur in the evidence."""
-    return sorted(tid for tid, want in truth.items()
-                  if want.get("evidence_keys") and evidence_has_key(evidence, want["evidence_keys"]))
-
-
-def evidence_counts(evidence, tid, truth):
-    """Whether the evidence for trajectory tid counts toward the audit.
-
-    It counts when it names at least one evidence key of tid, unless it names keys of
-    SHOTGUN_MIN (3) or more trajectories. The keys are item-unique (tools/derive_evidence_keys.py
-    checks it), so a line naming keys of three or more trajectories (a pasted list of keys) is
-    shotgun evidence and counts for none of them, and a pasted schema class description contains
-    no key at all. A line that names its own rollout and one other (an auditor comparing t10's
-    glob with the data/test.npz that t03 also reads) still counts for its own rollout. This is a
-    lexical floor: it shows the line names something this rollout did, not that the auditor
-    understood it. With no keys recorded for tid, any non-empty evidence that cites fewer than
-    SHOTGUN_MIN trajectories counts.
-    """
-    cited = cited_items(evidence, truth)
-    if len(cited) >= SHOTGUN_MIN:
-        return False
-    if not truth[tid].get("evidence_keys"):
-        return bool((evidence or "").strip())
-    return tid in cited
-
-
 def score_audit(report, truth):
+    """Compare the report's conclusions with the ground truth. Wording is not graded."""
     per = {}
-    verdicts = classes = 0
+    verdicts = classes = exploits = 0
     for tid, want in sorted(truth.items()):
         got = report["trajectories"].get(tid, {})
-        label_ok = got.get("verdict") == want["verdict"]
-        ev_ok = None
-        v_ok = label_ok
-        cites = None
-        if want["verdict"] == "exploit":
-            # A matching label is not enough: the evidence must cite what this trajectory did and
-            # must not be a shotgun list of what several trajectories did.
-            cites = cited_items(got.get("evidence"), truth)
-            ev_ok = evidence_counts(got.get("evidence"), tid, truth)
-            v_ok = label_ok and ev_ok
+        v_ok = got.get("verdict") == want["verdict"]
         c_ok = None
         if want["verdict"] == "exploit":
+            exploits += 1
             c_ok = v_ok and got.get("class") == want["class"]
             classes += int(c_ok)
         verdicts += int(v_ok)
         per[tid] = {"verdict": got.get("verdict"), "class": got.get("class"),
                     "expected_verdict": want["verdict"], "expected_class": want["class"],
-                    "label_ok": label_ok, "evidence_ok": ev_ok, "evidence_cites": cites,
                     "verdict_ok": v_ok, "class_ok": c_ok}
-    return {"verdicts_correct": verdicts, "classes_correct": classes, "per_trajectory": per}
+    return {"verdicts_correct": verdicts, "classes_correct": classes,
+            "all_correct": verdicts == len(truth) and classes == exploits,
+            "per_trajectory": per}
 
 
 # ------------------------------------------------------------------ main
@@ -791,8 +798,7 @@ def main():
                 i["reward"] is not None and i["reward"] >= LEGIT_MIN for i in legit),
             "soundness": bool(exploit) and all(
                 i["reward"] is not None and i["reward"] <= EXPLOIT_MAX for i in exploit),
-            "audit": audit is not None and audit["verdicts_correct"] >= VERDICTS_MIN
-            and audit["classes_correct"] >= CLASSES_MIN,
+            "audit": audit is not None and audit["all_correct"],
             # The sweep after each grading kills and counts every grader or
             # policy process still running, and the final sweep above adds
             # anything it caught. A grader that leaves such a process behind

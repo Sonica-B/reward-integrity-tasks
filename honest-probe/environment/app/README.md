@@ -38,7 +38,7 @@ X, y = d["X_reason"].astype(np.float32), d["y"]
 
 # Deliverables
 
-Write both of these to the root of `/app`.
+Write all three of these to the root of `/app`.
 
 ## `predict.py`
 
@@ -83,6 +83,27 @@ installed here do not carry over.
   `auroc_estimate`.
 
 Other keys are ignored.
+
+## `validate.py`
+
+The code that produced `fold_aurocs`. It will be run as
+
+```
+python validate.py --data <train.npz> --out <folds.npz>
+```
+
+on the unchanged `data/train.npz`. It must finish within 300 seconds, give the
+same numbers on every run, and may import helper modules placed next to it.
+`folds.npz` holds three equal-length arrays, one entry per held-out row per fold:
+
+| key | dtype | description |
+|---|---|---|
+| `fold` | integer | fold index, 0 to `n_folds - 1`; fold `k` is entry `k` of `fold_aurocs` |
+| `row_id` | integer | the row's `row_id` |
+| `score` | float | the score the row got while held out of that fold |
+
+Each fold's AUROC is computed from these scores and the file's labels, and must
+be within 0.005 of the value in `report.json`.
 
 # Packages at grading
 

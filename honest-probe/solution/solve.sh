@@ -19,6 +19,8 @@
 #   guess_estimate   the canonical probe with the interval [BAR, BAR + WIDTH]
 #                    read off the instruction and no validation (QC: fails the
 #                    estimate gate)
+#   fabricated_folds the canonical probe and interval with made-up fold_aurocs
+#                    (QC: only re-running validate.py catches it)
 #   report_only      report.json and no predict.py (QC: fails the contract)
 set -euo pipefail
 

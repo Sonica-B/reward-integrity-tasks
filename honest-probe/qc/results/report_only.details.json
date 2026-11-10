@@ -9,13 +9,15 @@
   "predict_seconds": null,
   "private_consumed": true,
   "contract_errors": [
-    "predict.py missing"
+    "predict.py missing",
+    "validate.py missing"
   ],
-  "reason": "contract failed: predict.py missing",
+  "reason": "contract failed: predict.py missing; validate.py missing",
   "gates": {
     "contract": false,
     "bar": false,
-    "estimate": false
+    "estimate": false,
+    "validation": false
   },
   "estimate_checks": {
     "contains": false,
@@ -27,6 +29,10 @@
   "fold_gap": null,
   "n_folds": null,
   "split_key": null,
+  "validation": {
+    "reproduced": false,
+    "reason": "validate.py was not run"
+  },
   "stdout_tail": "",
   "stderr_tail": "",
   "stray_kills": 0,

@@ -20,7 +20,7 @@ tags = ["interpretability", "chain-of-thought-monitorability", "probing", "ml-ev
 difficulty_explanation = "The machine learning is easy: a linear probe on the hidden states clears the bar without trouble, so the rigor is the real test. The four samples of a problem share an identical X_prompt, so a naive row-wise validation reads about 0.78 while the honest problem-disjoint generalization is about 0.65. The agent reports an AUROC interval of bounded width backed by per-fold evidence, and only an interval built from a validation that accounts for that gap contains the measured value."
 
 [verifier]
-timeout_sec = 600.0
+timeout_sec = 900.0
 environment_mode = "separate"
 
 [agent]

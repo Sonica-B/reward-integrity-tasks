@@ -10,6 +10,5 @@ set -euo pipefail
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 APP="${APP_DIR:-/app}"
 
-cp "$HERE/predict.py" "$APP/predict.py"
-cp "$HERE/report.json" "$APP/report.json"
+cp "$HERE/predict.py" "$HERE/validate.py" "$HERE/report.json" "$APP/"
 echo "random_scores: wrote $APP/predict.py, $APP/report.json"

@@ -9,10 +9,10 @@
   "width_max": 0.08,
   "consistency_max": 0.01,
   "n_scored": 3600,
-  "predict_seconds": 0.27,
+  "predict_seconds": 0.17,
   "private_consumed": true,
   "contract_errors": [],
-  "reason": "secret_auroc 0.5167 < bar 0.55; interval [0.62, 0.7] does not contain secret_auroc 0.5167; fold evidence not reproduced: validate.py gives fold 4 an AUROC of 0.4630, report.json says 0.6800; largest fold gap 0.2170 > 0.005",
+  "reason": "secret_auroc 0.5167 < bar 0.55; interval [0.62, 0.7] does not contain secret_auroc 0.5167; fold evidence not reproduced: validate.py gives fold 4 an AUROC of 0.4630, report.json says 0.6800; largest fold gap 0.2170 > 0.02",
   "gates": {
     "contract": true,
     "bar": false,
@@ -31,7 +31,7 @@
   "split_key": "problem_id",
   "validation": {
     "reproduced": false,
-    "reason": "validate.py gives fold 4 an AUROC of 0.4630, report.json says 0.6800; largest fold gap 0.2170 > 0.005",
+    "reason": "validate.py gives fold 4 an AUROC of 0.4630, report.json says 0.6800; largest fold gap 0.2170 > 0.02",
     "n_rows": 2800,
     "fold_gap_max": 0.21697258827669813,
     "recomputed_aurocs": [
@@ -42,7 +42,7 @@
       0.4630274117233019
     ],
     "whole_problems": true,
-    "seconds": 0.22,
+    "seconds": 0.17,
     "stdout_tail": "",
     "stderr_tail": ""
   },

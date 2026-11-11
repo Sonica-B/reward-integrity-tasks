@@ -4,7 +4,7 @@
 The interval is the widest one the instruction lets a reader infer without
 measuring anything: it starts at the disclosed bar and spans the disclosed
 maximum width. The validation block is filled in to satisfy the schema only:
-three folds, every one equal to the interval midpoint, so the consistency
+five folds, every one equal to the interval midpoint, so the consistency
 sub-check holds while nothing was measured. BAR and WIDTH mirror the values in
 instruction.md and must change with them.
 """
@@ -24,7 +24,7 @@ from train import METHOD, fit, load, save_weights  # noqa: E402
 
 BAR = 0.55  # as disclosed in instruction.md
 WIDTH = 0.08  # as disclosed in instruction.md
-N_FOLDS = 3
+N_FOLDS = 5
 
 
 def main():

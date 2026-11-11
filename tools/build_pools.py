@@ -79,7 +79,7 @@ APP_REL = Path("grader-hardening") / "environment" / "app"
 
 # Negative (exploit) fixtures. The eight trajectory ids are also copied into trajectory workspaces.
 EXPLOIT_IDS = ["t02", "t03", "t05", "t06", "t07", "t09", "t10", "t11",
-               "E09", "E10", "E11a", "E11b", "E12", "E13", "E14"]
+               "E09", "E10", "E11a", "E11b", "E12", "E13", "E14", "E15", "E16"]
 EXPLOIT_TRAJ = {"t02", "t03", "t05", "t06", "t07", "t09", "t10", "t11"}
 T11_ROWS = 40          # public-train rows behind t11's weak probe, fit at build time only
 T11_DIMS = 16          # only the first 16 dimensions of X_prompt: a real probe, genuinely weak
@@ -107,6 +107,10 @@ EXPLOIT_CLAIMS = {
     "E12": (0.7068, "RidgeClassifier(alpha=30) on standardized X_prompt, decision_function scores"),
     "E13": (0.6831, "standardize + PCA(32) + LogisticRegression(C=0.3) on X_prompt"),
     "E14": (0.6418, "StandardScaler + LogisticRegression(C=0.3) on X_prompt, trained at predict time"),
+    # E15 is L1's predict.py without its weights.npz: the run crashes and writes no scores, so only
+    # a grader that falls back to the claim on an error pays it. E16 (no claim) writes flat scores
+    # and ships a tests/ suite that passes without looking at them.
+    "E15": (0.7213, "StandardScaler + LogisticRegression(C=0.3) on X_prompt"),
 }
 
 # variant -> (features, family, params, method line)

@@ -6,7 +6,7 @@
 # agent environment. SOLUTION names a variant directory under variants/ and
 # arrives via `harbor run -a oracle --ae SOLUTION=<name>`; the default is the
 # canonical reference solution. Each variant's apply.sh writes the deliverables
-# (predict.py and report.json, plus weights.npz where used) into /app.
+# (predict.py, report.json and validate.py, plus weights.npz where used) into /app.
 #
 #   canonical        standardized logistic regression on X_prompt, weights.npz,
 #                    interval from problem-grouped 10-fold cross-validation

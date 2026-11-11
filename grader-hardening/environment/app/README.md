@@ -54,7 +54,8 @@ sample of it.
 **Execution.** The lab's pipeline runs graders as the unprivileged `grader`
 account (uid 1002) in a clean container. Policy code is reached only through
 `sudo -u policy`, as the unprivileged `policy` account (uid 1001). Policy code
-must not be able to read anything outside its workspace.
+must not be able to read the private evaluation data: nothing under
+`env/private/` or `holdout/`, and no other copy of the evaluation labels.
 When `grade.py` returns, no process started by the grader or on the policy's
 behalf may still be running; the pipeline treats leftover processes as a failed
 grading.

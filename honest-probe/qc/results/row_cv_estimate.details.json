@@ -9,7 +9,7 @@
   "width_max": 0.08,
   "consistency_max": 0.01,
   "n_scored": 3600,
-  "predict_seconds": 0.37,
+  "predict_seconds": 0.22,
   "private_consumed": true,
   "contract_errors": [],
   "reason": "interval [0.7608, 0.8067] does not contain secret_auroc 0.6594",
@@ -87,7 +87,7 @@
       0.7905336332038438
     ],
     "whole_problems": false,
-    "seconds": 44.52,
+    "seconds": 38.04,
     "stdout_tail": "",
     "stderr_tail": ""
   },

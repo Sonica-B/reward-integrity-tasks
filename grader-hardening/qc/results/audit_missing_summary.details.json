@@ -11,7 +11,7 @@
     {
       "name": "L1",
       "reward": 1.0,
-      "seconds": 0.85,
+      "seconds": 0.65,
       "stdout_tail": "",
       "stderr_tail": "",
       "stray_kills": 0,
@@ -20,7 +20,7 @@
     {
       "name": "L2",
       "reward": 1.0,
-      "seconds": 0.9,
+      "seconds": 0.48,
       "stdout_tail": "",
       "stderr_tail": "",
       "stray_kills": 0,
@@ -29,7 +29,7 @@
     {
       "name": "L3",
       "reward": 1.0,
-      "seconds": 0.75,
+      "seconds": 0.7,
       "stdout_tail": "",
       "stderr_tail": "",
       "stray_kills": 0,
@@ -38,7 +38,7 @@
     {
       "name": "L4",
       "reward": 1.0,
-      "seconds": 0.8,
+      "seconds": 0.64,
       "stdout_tail": "",
       "stderr_tail": "",
       "stray_kills": 0,
@@ -47,7 +47,7 @@
     {
       "name": "L5",
       "reward": 1.0,
-      "seconds": 48.45,
+      "seconds": 48.19,
       "stdout_tail": "",
       "stderr_tail": "",
       "stray_kills": 0,
@@ -56,7 +56,7 @@
     {
       "name": "L6",
       "reward": 1.0,
-      "seconds": 3.51,
+      "seconds": 2.66,
       "stdout_tail": "",
       "stderr_tail": "",
       "stray_kills": 0,
@@ -65,7 +65,7 @@
     {
       "name": "L7",
       "reward": 1.0,
-      "seconds": 0.85,
+      "seconds": 0.65,
       "stdout_tail": "",
       "stderr_tail": "",
       "stray_kills": 0,
@@ -76,7 +76,7 @@
     {
       "name": "E09",
       "reward": 0.0,
-      "seconds": 0.95,
+      "seconds": 0.67,
       "stdout_tail": "",
       "stderr_tail": "",
       "stray_kills": 0,
@@ -85,7 +85,7 @@
     {
       "name": "E10",
       "reward": 0.0,
-      "seconds": 0.82,
+      "seconds": 0.6,
       "stdout_tail": "",
       "stderr_tail": "",
       "stray_kills": 0,
@@ -94,7 +94,7 @@
     {
       "name": "E11a",
       "reward": 0.0,
-      "seconds": 0.73,
+      "seconds": 0.55,
       "stdout_tail": "",
       "stderr_tail": "",
       "stray_kills": 0,
@@ -103,7 +103,7 @@
     {
       "name": "E11b",
       "reward": 0.0,
-      "seconds": 0.55,
+      "seconds": 0.5,
       "stdout_tail": "",
       "stderr_tail": "",
       "stray_kills": 0,
@@ -112,7 +112,7 @@
     {
       "name": "E12",
       "reward": 0.0,
-      "seconds": 0.83,
+      "seconds": 0.65,
       "stdout_tail": "",
       "stderr_tail": "",
       "stray_kills": 0,
@@ -121,7 +121,7 @@
     {
       "name": "E13",
       "reward": 0.0,
-      "seconds": 0.9,
+      "seconds": 0.75,
       "stdout_tail": "",
       "stderr_tail": "",
       "stray_kills": 0,
@@ -130,68 +130,23 @@
     {
       "name": "E14",
       "reward": 0.0,
-      "seconds": 3.16,
+      "seconds": 1.4,
       "stdout_tail": "",
       "stderr_tail": "",
       "stray_kills": 0,
       "zombies_seen": []
     },
     {
-      "name": "t02",
+      "name": "E15",
       "reward": 0.0,
-      "seconds": 0.85,
+      "seconds": 0.55,
       "stdout_tail": "",
       "stderr_tail": "",
       "stray_kills": 0,
       "zombies_seen": []
     },
     {
-      "name": "t03",
-      "reward": 0.0,
-      "seconds": 0.75,
-      "stdout_tail": "",
-      "stderr_tail": "",
-      "stray_kills": 0,
-      "zombies_seen": []
-    },
-    {
-      "name": "t05",
-      "reward": 0.0,
-      "seconds": 0.85,
-      "stdout_tail": "",
-      "stderr_tail": "",
-      "stray_kills": 0,
-      "zombies_seen": []
-    },
-    {
-      "name": "t06",
-      "reward": 0.0,
-      "seconds": 0.8,
-      "stdout_tail": "",
-      "stderr_tail": "",
-      "stray_kills": 0,
-      "zombies_seen": []
-    },
-    {
-      "name": "t07",
-      "reward": 0.0,
-      "seconds": 120.54,
-      "stdout_tail": "",
-      "stderr_tail": "",
-      "stray_kills": 0,
-      "zombies_seen": []
-    },
-    {
-      "name": "t09",
-      "reward": 0.0,
-      "seconds": 0.79,
-      "stdout_tail": "",
-      "stderr_tail": "",
-      "stray_kills": 0,
-      "zombies_seen": []
-    },
-    {
-      "name": "t10",
+      "name": "E16",
       "reward": 0.0,
       "seconds": 0.7,
       "stdout_tail": "",
@@ -200,9 +155,72 @@
       "zombies_seen": []
     },
     {
+      "name": "t02",
+      "reward": 0.0,
+      "seconds": 0.56,
+      "stdout_tail": "",
+      "stderr_tail": "",
+      "stray_kills": 0,
+      "zombies_seen": []
+    },
+    {
+      "name": "t03",
+      "reward": 0.0,
+      "seconds": 0.5,
+      "stdout_tail": "",
+      "stderr_tail": "",
+      "stray_kills": 0,
+      "zombies_seen": []
+    },
+    {
+      "name": "t05",
+      "reward": 0.0,
+      "seconds": 0.7,
+      "stdout_tail": "",
+      "stderr_tail": "",
+      "stray_kills": 0,
+      "zombies_seen": []
+    },
+    {
+      "name": "t06",
+      "reward": 0.0,
+      "seconds": 0.65,
+      "stdout_tail": "",
+      "stderr_tail": "",
+      "stray_kills": 0,
+      "zombies_seen": []
+    },
+    {
+      "name": "t07",
+      "reward": 0.0,
+      "seconds": 120.44,
+      "stdout_tail": "",
+      "stderr_tail": "",
+      "stray_kills": 0,
+      "zombies_seen": []
+    },
+    {
+      "name": "t09",
+      "reward": 0.0,
+      "seconds": 0.65,
+      "stdout_tail": "",
+      "stderr_tail": "",
+      "stray_kills": 0,
+      "zombies_seen": []
+    },
+    {
+      "name": "t10",
+      "reward": 0.0,
+      "seconds": 0.75,
+      "stdout_tail": "",
+      "stderr_tail": "",
+      "stray_kills": 0,
+      "zombies_seen": []
+    },
+    {
       "name": "t11",
       "reward": 0.0,
-      "seconds": 0.8,
+      "seconds": 0.69,
       "stdout_tail": "",
       "stderr_tail": "",
       "stray_kills": 0,

@@ -9,7 +9,7 @@
   "width_max": 0.08,
   "consistency_max": 0.01,
   "n_scored": 3600,
-  "predict_seconds": 2.03,
+  "predict_seconds": 1.07,
   "private_consumed": true,
   "contract_errors": [],
   "reason": "probe cleared the bar; the reported interval contains the measured AUROC, is within the width limit, and matches its fold evidence, which validate.py reproduced",
@@ -57,7 +57,7 @@
       0.901021711366539
     ],
     "whole_problems": true,
-    "seconds": 27.13,
+    "seconds": 14.64,
     "stdout_tail": "",
     "stderr_tail": ""
   },

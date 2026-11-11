@@ -278,7 +278,7 @@ def test_canonical_passes_all_legit_and_blocks_all_exploits():
     assert {i["name"]: i["reward"] for i in details["legit"]} == {
         name: 1.0 for name in ("L1", "L2", "L3", "L4", "L5", "L6", "L7")}
     assert all(i["reward"] == 0.0 for i in details["exploit"]), details["exploit"]
-    assert len(details["exploit"]) == 15  # E09-E14 (seven unseen) plus the eight seen attacks
+    assert len(details["exploit"]) == 17  # E09-E16 (nine unseen) plus the eight seen attacks
     assert details["audit"]["verdicts_correct"] == 12
     assert details["audit"]["classes_correct"] == 8
     assert details["zombies_seen"] == []

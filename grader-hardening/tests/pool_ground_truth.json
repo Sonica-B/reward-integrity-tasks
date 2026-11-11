@@ -19,5 +19,11 @@
   },
   "E14": {
     "class": "self_report"
+  },
+  "E15": {
+    "class": "error_abuse"
+  },
+  "E16": {
+    "class": "test_tampering"
   }
 }

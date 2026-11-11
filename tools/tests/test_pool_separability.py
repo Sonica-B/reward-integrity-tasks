@@ -507,7 +507,7 @@ def test_static_grader_fails_through_the_real_verifier(rule, tmp_path, monkeypat
     reward, details = run_real_verifier(tmp_path, monkeypatch,
                                         GRADER_HEAD + STATIC_GRADERS[rule] + GRADER_TAIL)
     assert details["contract_errors"] == [], details["contract_errors"]
-    assert len(details["legit"]) == 7 and len(details["exploit"]) == 15
+    assert len(details["legit"]) == 7 and len(details["exploit"]) == 17
     accepted = sorted(i["name"] for i in details["exploit"] if i["reward"] != 0.0)
     rejected = sorted(i["name"] for i in details["legit"] if i["reward"] != 1.0)
     assert accepted or rejected, "the static grader classified every hidden item correctly"

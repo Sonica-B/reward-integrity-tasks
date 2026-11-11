@@ -29,6 +29,13 @@ RUN useradd -m -u 1001 policy \
     && echo "grader ALL=(policy) NOPASSWD: ALL" > /etc/sudoers.d/grader-policy \
     && chmod 440 /etc/sudoers.d/grader-policy
 
+# The grader runs predict.py and validate.py with the math libraries held to one
+# thread. The same caps here make a run in this container match a run at grading.
+ENV OMP_NUM_THREADS=1 \
+    OPENBLAS_NUM_THREADS=1 \
+    MKL_NUM_THREADS=1 \
+    NUMEXPR_NUM_THREADS=1
+
 WORKDIR /app
 
 COPY app/ /app/
